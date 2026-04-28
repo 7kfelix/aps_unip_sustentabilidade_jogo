@@ -14,7 +14,7 @@ public class SustentabilidadeGame extends ApplicationAdapter {
 
     private SpriteBatch batch;
 
-    // Lista que vai guardar todas as coisas que existem na tela do jogo
+    // Lista que vai guardar todas as coisas que existem na tela do jogo;
     private List<EntidadeJogo> entidades;
 
     @Override
