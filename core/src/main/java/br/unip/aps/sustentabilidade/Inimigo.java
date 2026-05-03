@@ -21,6 +21,16 @@ public class Inimigo extends EntidadeJogo {
         this.indiceAlvoAtual = 0; // Começa buscando o primeiro ponto da lista
     }
 
+    public void receberDano(int quantidadeDano) {
+        this.vida -= quantidadeDano;
+        System.out.println("Inimigo atingido! Vida restante: " + this.vida);
+
+        if (this.vida <= 0) {
+            this.ativo = false; // Etiqueta o inimigo para ser removido da tela
+            System.out.println("Poluição eliminada com sucesso!");
+        }
+    }
+
     @Override
     public void atualizar(float deltaTime) {
         // Se não tem caminho ou já chegou no final (no Núcleo da Natureza), ele para de andar

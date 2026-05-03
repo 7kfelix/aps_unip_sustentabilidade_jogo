@@ -13,47 +13,62 @@ import java.util.List;
 public class SustentabilidadeGame extends ApplicationAdapter {
 
     private SpriteBatch batch;
-
-    // Lista que vai guardar todas as coisas que existem na tela do jogo;
     private List<EntidadeJogo> entidades;
+    private Texture texturaPoluicao;
+    private Texture texturaTorre;
+
+    // NOSSO NOVO GERENCIADOR
+    private GeradorDeOndas geradorDeOndas;
 
     @Override
     public void create() {
         batch = new SpriteBatch();
         entidades = new ArrayList<>();
 
-        Texture texturaPoluicao = new Texture("libgdx.png");
+        texturaPoluicao = new Texture("libgdx.png");
+        texturaTorre = new Texture("libgdx.png");
 
-        // 1. Desenhamos a rota do mapa (Waypoints)
-        // O inimigo começa fora da tela, vai pro meio, sobe, e vai pro canto direito
         List<Vector2> rotaDoMapa = new ArrayList<>();
-        rotaDoMapa.add(new Vector2(300, 200)); // Ponto 1: Anda para a direita
-        rotaDoMapa.add(new Vector2(300, 400)); // Ponto 2: Faz a curva para cima
-        rotaDoMapa.add(new Vector2(600, 400)); // Ponto 3: Faz a curva para a direita
+        rotaDoMapa.add(new Vector2(300, 200));
+        rotaDoMapa.add(new Vector2(300, 400));
+        rotaDoMapa.add(new Vector2(600, 400));
 
-        // 2. Instanciamos o inimigo passando a posição inicial (0, 200) e a rota
-        Inimigo primeiroInimigo = new Inimigo(0, 200, texturaPoluicao, rotaDoMapa);
-
-        entidades.add(primeiroInimigo);
+        // EM VEZ DE CRIAR O INIMIGO AQUI, CRIAMOS O GERADOR
+        geradorDeOndas = new GeradorDeOndas(entidades, rotaDoMapa, texturaPoluicao);
     }
 
     @Override
     public void render() {
-        // Limpa a tela a cada frame (colocamos um tom de verde musgo para o tema sustentável)
         ScreenUtils.clear(0.1f, 0.3f, 0.15f, 1f);
-
-        // deltaTime é a fração de segundo desde o último frame (ex: 0.016s se estiver a 60 FPS)
         float deltaTime = Gdx.graphics.getDeltaTime();
 
-        // 1. FASE DE LÓGICA: Atualiza posição, colisão e vida
-        for (EntidadeJogo entidade : entidades) {
-            entidade.atualizar(deltaTime);
+        // CONSTRUÇÃO DE TORRES
+        if (Gdx.input.justTouched()) {
+            float cliqueX = Gdx.input.getX();
+            float cliqueY = Gdx.graphics.getHeight() - Gdx.input.getY();
+            Torre novaTorre = new Torre(cliqueX, cliqueY, texturaTorre, entidades);
+            entidades.add(novaTorre);
         }
 
-        // 2. FASE DE RENDERIZAÇÃO: Manda desenhar na tela
+        // 0. ATUALIZA O GERADOR DE ONDAS (Ele vai jogar inimigos na lista no tempo certo)
+        geradorDeOndas.atualizar(deltaTime);
+
+        // 1. FASE DE LÓGICA (Movimento e Tiros)
+        for (int i = 0; i < entidades.size(); i++) {
+            entidades.get(i).atualizar(deltaTime);
+        }
+
+        // 1.5 FASE DE FAXINA (Garbage Collector Manual)
+        for (int i = entidades.size() - 1; i >= 0; i--) {
+            if (!entidades.get(i).isAtivo()) {
+                entidades.remove(i);
+            }
+        }
+
+        // 2. FASE DE RENDERIZAÇÃO
         batch.begin();
-        for (EntidadeJogo entidade : entidades) {
-            entidade.renderizar(batch);
+        for (int i = 0; i < entidades.size(); i++) {
+            entidades.get(i).renderizar(batch);
         }
         batch.end();
     }
@@ -61,7 +76,8 @@ public class SustentabilidadeGame extends ApplicationAdapter {
     @Override
     public void dispose() {
         batch.dispose();
-        // Limpa a memória das texturas quando o jogador fechar o jogo
+        texturaPoluicao.dispose();
+        texturaTorre.dispose();
         for (EntidadeJogo entidade : entidades) {
             entidade.destruir();
         }
