@@ -14,7 +14,6 @@ public class Inimigo extends EntidadeJogo {
     private float velocidade;
     private int vida;
 
-    // NOSSOS NOVOS ATRIBUTOS
     private int vidaMaxima;
     private float tempoParalisado = 0f;
 
@@ -24,7 +23,6 @@ public class Inimigo extends EntidadeJogo {
     private TelaJogo jogoPrincipal;
     private Tipo tipo;
 
-    // onda atual adicionado
     public Inimigo(float x, float y, Tipo tipo, List<Vector2> caminho, TelaJogo jogoPrincipal, int ondaAtual) {
         super(x, y, null);
         this.caminho = caminho;
@@ -60,7 +58,7 @@ public class Inimigo extends EntidadeJogo {
             default:
                 vidaBase = 100;
                 velocidadeBase = 150.0f;
-                this.recompensa = 4; // Economia nerfada que conversamos
+                this.recompensa = 4; 
                 cor = Color.WHITE;
                 break;
         }
@@ -77,8 +75,10 @@ public class Inimigo extends EntidadeJogo {
         } else if (ondaAtual >= 15) {
             multiplicadorDePico = 2.0f; // Dobra a partir da onda 15
         }
+        else if (ondaAtual >= 60) {
+            multiplicadorDePico = 10.5f; 
+        }
 
-        // 4. APLICAMOS OS BUFFS TOTAIS
         this.vida = (int) (vidaBase * multiplicadorVida * multiplicadorDePico);
         this.velocidade = velocidadeBase * multiplicadorVelocidade * multiplicadorDePico;
 
