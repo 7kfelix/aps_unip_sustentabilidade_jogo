@@ -1,20 +1,20 @@
 package br.unip.aps.sustentabilidade;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.math.Intersector;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class TelaJogo implements Screen {
 
@@ -25,11 +25,13 @@ public class TelaJogo implements Screen {
     private List<EntidadeJogo> entidades;
     private GeradorDeOndas geradorDeOndas;
     private Torre.Tipo torreSelecionada = Torre.Tipo.SEMENTEIRA; // Começa com a básica
-
+    private GerenciadorDeConstrucao gerenciadorConstrucao;
+    
     private int ecoMoedas;
     private int vidaBase;
     private boolean isGameOver;
     private List<Vector2> rotaDoMapa;
+    private boolean isPaused = false;
 
     private boolean upgradeVidaComprado = false;
     private final int CUSTO_UPGRADE_VIDA = 300;
@@ -49,9 +51,10 @@ public class TelaJogo implements Screen {
         camera.position.set(1280 / 2f, 720 / 2f, 0);
 
         entidades = new ArrayList<>();
-        ecoMoedas = 150;
-        vidaBase = 5;
+        ecoMoedas = 100;
+        vidaBase = 10;
         isGameOver = false;
+        
 
         rotaDoMapa = new ArrayList<>();
         rotaDoMapa.add(new Vector2(200, 720));
@@ -61,13 +64,16 @@ public class TelaJogo implements Screen {
         rotaDoMapa.add(new Vector2(200, 200));
         rotaDoMapa.add(new Vector2(200, 0));
 
+        gerenciadorConstrucao = new GerenciadorDeConstrucao(game, this, entidades, rotaDoMapa);
         geradorDeOndas = new GeradorDeOndas(entidades, rotaDoMapa, this);
     }
 
     public void sofrerDanoNaBase(int dano) {
         if (!isGameOver) {
             vidaBase -= dano;
-            if (vidaBase <= 0) isGameOver = true;
+            if (vidaBase <= 0) {
+                isGameOver = true;
+            }
         }
     }
 
@@ -75,73 +81,69 @@ public class TelaJogo implements Screen {
         this.ecoMoedas += valor;
     }
 
-    private boolean podeConstruirAqui(float clickX, float clickY) {
-        // 1. BLOQUEIO DA ÁREA DO MENU (Nada de construir em cima da interface!)
-        if (clickX > 1030) {
-            System.out.println("Bloqueado: Área da loja.");
-            return false;
-        }
-
-        float centroX = clickX + 20f;
-        float centroY = clickY + 20f;
-
-        // 2. Colisão com a Estrada
-        for (int i = 0; i < rotaDoMapa.size() - 1; i++) {
-            Vector2 pontoAtual = rotaDoMapa.get(i);
-            Vector2 proximoPonto = rotaDoMapa.get(i + 1);
-            float distanciaParaEstrada = Intersector.distanceSegmentPoint(pontoAtual.x, pontoAtual.y, proximoPonto.x, proximoPonto.y, centroX, centroY);
-            if (distanciaParaEstrada < 30f) return false;
-        }
-
-        // 3. Colisão com outras Torres
-        for (EntidadeJogo entidade : entidades) {
-            if (entidade instanceof Torre) {
-                float distanciaParaOutraTorre = Vector2.dst(centroX, centroY, entidade.x + 20f, entidade.y + 20f);
-                if (distanciaParaOutraTorre < 40f) return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
+   @Override
     public void render(float delta) {
         ScreenUtils.clear(0.1f, 0.3f, 0.15f, 1f);
         camera.update();
 
+        // Captura a posição do mouse e atualiza o gerenciador logo no início
+        Vector3 toque = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
+        camera.unproject(toque);
+        gerenciadorConstrucao.atualizarMouse(toque.x, toque.y);
+
         // ==========================================
-        // LÓGICA DE ENTRADA (Mecânica do Mouse e Teclado)
+        // CONTROLE DO PAUSE (TECLA ESC)
         // ==========================================
-        if (!isGameOver) {
-            // Atalhos pelo teclado continuam funcionando
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) torreSelecionada = Torre.Tipo.SEMENTEIRA;
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) torreSelecionada = Torre.Tipo.MACACO;
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) torreSelecionada = Torre.Tipo.PLANTA;
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) torreSelecionada = Torre.Tipo.BAMBU;
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_5)) torreSelecionada = Torre.Tipo.FILTRO;
-            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_6)) torreSelecionada = Torre.Tipo.ARVORE;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            if (!isGameOver) {
+                isPaused = !isPaused; // Inverte o estado (Pausa/Despausa)
+            }
+        }
+
+        // ==========================================
+        // LÓGICA DE ENTRADA E ATUALIZAÇÃO
+        // ==========================================
+        // O jogo só "roda" se NÃO estiver em Game Over e NÃO estiver pausado
+        if (!isGameOver && !isPaused) {
+
+            // --- SELEÇÃO VIA TECLADO ---
+            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
+                torreSelecionada = Torre.Tipo.SEMENTEIRA;
+                gerenciadorConstrucao.setTorreSelecionada(torreSelecionada);
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
+                torreSelecionada = Torre.Tipo.MACACO;
+                gerenciadorConstrucao.setTorreSelecionada(torreSelecionada);
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) {
+                torreSelecionada = Torre.Tipo.PLANTA;
+                gerenciadorConstrucao.setTorreSelecionada(torreSelecionada);
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) {
+                torreSelecionada = Torre.Tipo.BAMBU;
+                gerenciadorConstrucao.setTorreSelecionada(torreSelecionada);
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_5)) {
+                torreSelecionada = Torre.Tipo.FILTRO;
+                gerenciadorConstrucao.setTorreSelecionada(torreSelecionada);
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_6)) {
+                torreSelecionada = Torre.Tipo.ARVORE;
+                gerenciadorConstrucao.setTorreSelecionada(torreSelecionada);
+            }
 
             // --- MODO DEV (CHEAT CODE: DONVIADO) ---
-            // Verifica se alguma tecla qualquer foi pressionada neste exato frame
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ANY_KEY)) {
-
-                // Se a tecla pressionada for a tecla correta da sequência atual
+            // Ignoramos a tecla ESC na sequência do cheat para não bugar o pause
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ANY_KEY) && !Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
                 if (Gdx.input.isKeyJustPressed(CHEAT_SEQUENCE[cheatIndex])) {
-                    cheatIndex++; // Avança um passo no código
-
-                    // Se chegou no final da palavra inteira
+                    cheatIndex++;
                     if (cheatIndex == CHEAT_SEQUENCE.length) {
                         ecoMoedas += 1000000;
-                        System.out.println("MODO DEV: Código DONVIADO ativado! +1.000.000 Moedas");
-                        cheatIndex = 0; // Zera para poder usar de novo
-                    }
-                } else {
-                    // Se errou a letra, a sequência é cancelada.
-                    // Porém, checamos se a tecla "errada" não é a letra 'D' recomeçando a palavra.
-                    if (Gdx.input.isKeyJustPressed(CHEAT_SEQUENCE[0])) {
-                        cheatIndex = 1;
-                    } else {
+                        System.out.println("MODO DEV: Código DONVIADO ativado!");
                         cheatIndex = 0;
                     }
+                } else {
+                    cheatIndex = Gdx.input.isKeyJustPressed(CHEAT_SEQUENCE[0]) ? 1 : 0;
                 }
             }
 
@@ -150,41 +152,41 @@ public class TelaJogo implements Screen {
                 if (!upgradeVidaComprado && ecoMoedas >= CUSTO_UPGRADE_VIDA) {
                     ecoMoedas -= CUSTO_UPGRADE_VIDA;
                     upgradeVidaComprado = true;
-                    System.out.println("Upgrade: Barras de Vida Ativadas!");
                 }
             }
 
+            // --- CLIQUES DO MOUSE ---
             if (Gdx.input.justTouched()) {
-                Vector3 toque = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
-                camera.unproject(toque);
-
-                // SE CLICOU NA DIREITA (ÁREA DO MENU) -> Escolhe a Torre
-                // SE CLICOU NA DIREITA (ÁREA DO MENU) -> Escolhe a Torre
                 if (toque.x > 1050) {
-                    if (toque.y > 600) torreSelecionada = Torre.Tipo.SEMENTEIRA;
-                    else if (toque.y > 500) torreSelecionada = Torre.Tipo.MACACO;
-                    else if (toque.y > 400) torreSelecionada = Torre.Tipo.PLANTA;
-                    else if (toque.y > 300) torreSelecionada = Torre.Tipo.BAMBU;
-                    else if (toque.y > 200) torreSelecionada = Torre.Tipo.FILTRO;
-                    else if (toque.y > 100) torreSelecionada = Torre.Tipo.ARVORE;
-
-                        // CORREÇÃO: Área de clique do Upgrade de Vida (abaixo de 100)
-                    else if (toque.y <= 100) {
+                    if (toque.y > 600) {
+                        torreSelecionada = Torre.Tipo.SEMENTEIRA; 
+                    } else if (toque.y > 500) {
+                        torreSelecionada = Torre.Tipo.MACACO; 
+                    } else if (toque.y > 400) {
+                        torreSelecionada = Torre.Tipo.PLANTA; 
+                    } else if (toque.y > 300) {
+                        torreSelecionada = Torre.Tipo.BAMBU; 
+                    } else if (toque.y > 200) {
+                        torreSelecionada = Torre.Tipo.FILTRO; 
+                    } else if (toque.y > 100) {
+                        torreSelecionada = Torre.Tipo.ARVORE; 
+                    } else if (toque.y <= 100) {
                         if (!upgradeVidaComprado && ecoMoedas >= CUSTO_UPGRADE_VIDA) {
                             ecoMoedas -= CUSTO_UPGRADE_VIDA;
                             upgradeVidaComprado = true;
-                            System.out.println("Upgrade comprado pelo mouse!");
                         }
                     }
-                }
-                // SE CLICOU NO MAPA -> Tenta Construir
+                    gerenciadorConstrucao.setTorreSelecionada(torreSelecionada);
+                } 
                 else {
-                    if (podeConstruirAqui(toque.x, toque.y)) {
+                    float posRealX = toque.x - 20f;
+                    float posRealY = toque.y - 20f;
+
+                    if (gerenciadorConstrucao.podeConstruirAqui(posRealX, posRealY)) {
                         int custo = Torre.getCusto(torreSelecionada);
                         if (ecoMoedas >= custo) {
                             ecoMoedas -= custo;
-                            Torre novaTorre = new Torre(toque.x, toque.y, torreSelecionada, entidades, this);
-                            entidades.add(novaTorre);
+                            entidades.add(new Torre(posRealX, posRealY, torreSelecionada, entidades, this));
                         } else {
                             System.out.println("Faltam Eco-Moedas!");
                         }
@@ -193,17 +195,30 @@ public class TelaJogo implements Screen {
             }
 
             geradorDeOndas.atualizar(delta);
-            for (int i = 0; i < entidades.size(); i++) entidades.get(i).atualizar(delta);
-            for (int i = entidades.size() - 1; i >= 0; i--) if (!entidades.get(i).isAtivo()) entidades.remove(i);
+            for (int i = 0; i < entidades.size(); i++) {
+                entidades.get(i).atualizar(delta);
+            }
+            for (int i = entidades.size() - 1; i >= 0; i--) {
+                if (!entidades.get(i).isAtivo()) {
+                    entidades.remove(i);
+                }
+            }
+        } else if (isGameOver) {
+            // LÓGICA DE GAME OVER (RESTART)
+            if (Gdx.input.justTouched() || Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+                game.setScreen(new TelaJogo(game)); 
+                dispose(); 
+            }
         }
 
         // ==========================================
-        // RENDERIZAÇÃO: FUNDO E FORMAS
+        // RENDERIZAÇÃO: CENÁRIO E INTERFACE
+        // (Isso sempre desenha para o fundo não sumir no pause)
         // ==========================================
         game.shape.setProjectionMatrix(camera.combined);
         game.shape.begin(ShapeRenderer.ShapeType.Filled);
 
-        // 1. Desenha a Estrada
+        // Estrada
         game.shape.setColor(Color.valueOf("#795c34"));
         for (int i = 0; i < rotaDoMapa.size() - 1; i++) {
             Vector2 p1 = rotaDoMapa.get(i);
@@ -211,99 +226,101 @@ public class TelaJogo implements Screen {
             game.shape.rectLine(p1.x, p1.y, p2.x, p2.y, 40f);
         }
 
-        // 2. Desenha o Fundo do Menu Lateral
-        game.shape.setColor(0.1f, 0.1f, 0.1f, 0.8f); // Cinza escuro meio transparente
+        // Menu Lateral
+        game.shape.setColor(0.1f, 0.1f, 0.1f, 0.8f);
         game.shape.rect(1050, 0, 230, 720);
 
-        // 3. Desenha os "Ícones" (Quadrados) no Menu Lateral
+        // Ícones da Loja
         desenharQuadradoMenu(1060, 640, Color.BLUE, torreSelecionada == Torre.Tipo.SEMENTEIRA);
         desenharQuadradoMenu(1060, 540, Color.CYAN, torreSelecionada == Torre.Tipo.MACACO);
         desenharQuadradoMenu(1060, 440, Color.FOREST, torreSelecionada == Torre.Tipo.PLANTA);
         desenharQuadradoMenu(1060, 340, Color.WHITE, torreSelecionada == Torre.Tipo.BAMBU);
         desenharQuadradoMenu(1060, 240, Color.ROYAL, torreSelecionada == Torre.Tipo.FILTRO);
         desenharQuadradoMenu(1060, 140, Color.LIME, torreSelecionada == Torre.Tipo.ARVORE);
-
         game.shape.end();
 
-        // ==========================================
-        // RENDERIZAÇÃO: SPRITES E TEXTOS
-        // ==========================================
+        // Sprites, Entidades e HUD
         game.batch.setProjectionMatrix(camera.combined);
         game.batch.begin();
+        for (EntidadeJogo ent : entidades) {
+            ent.renderizar(game.batch);
+        }
 
-        for (int i = 0; i < entidades.size(); i++) entidades.get(i).renderizar(game.batch);
-
-        // Textos do Topo (HUD)
         game.fonte.setColor(Color.WHITE);
-        game.fonte.getData().setScale(1.5f); // Letra grande para o painel de Vida/Dinheiro
+        game.fonte.getData().setScale(1.5f);
         game.fonte.draw(game.batch, "Eco-Moedas: " + ecoMoedas, 20, 700);
         game.fonte.draw(game.batch, "Vida: " + vidaBase, 20, 670);
         game.fonte.draw(game.batch, "Onda: " + geradorDeOndas.getOndaAtual(), 20, 640);
 
-        // Textos da Loja Lateral (Temos que diminuir a fonte para caber as descrições)
         game.fonte.getData().setScale(1.0f);
+        game.fonte.draw(game.batch, "Sementeira\n$50 | Dano:50", 1110, 675);
+        game.fonte.draw(game.batch, "Macaco Splash\n$120 | Area", 1110, 575);
+        game.fonte.draw(game.batch, "Carnivora (CC)\n$100 | Root", 1110, 475);
+        game.fonte.draw(game.batch, "Bambu Sniper\n$650 | Dano:450", 1110, 375);
+        game.fonte.draw(game.batch, "Filtro D'Agua\n$80 | Aura", 1110, 275);
+        game.fonte.draw(game.batch, "Arvore Ancia\n$200 | Renda", 1110, 175);
 
-        // 1. Sementeira
-        game.fonte.draw(game.batch, "Sementeira", 1110, 675);
-        game.fonte.draw(game.batch, "$50 | Dano:30", 1110, 655);
-
-        // 2. Macaco
-        game.fonte.draw(game.batch, "Macaco Splash", 1110, 575);
-        game.fonte.draw(game.batch, "$120 | Dano em Area", 1110, 555);
-
-        // 3. Planta
-        game.fonte.draw(game.batch, "Carnivora (CC)", 1110, 475);
-        game.fonte.draw(game.batch, "$100 | Enraiza 2s", 1110, 455);
-
-        // 4. Bambu
-        game.fonte.draw(game.batch, "Bambu Sniper", 1110, 375);
-        game.fonte.draw(game.batch, "$150 | Dano:200", 1110, 355);
-
-        // 5. Filtro
-        game.fonte.draw(game.batch, "Filtro D'Agua", 1110, 275);
-        game.fonte.draw(game.batch, "$80 | Dano Continuo", 1110, 255);
-
-        // 6. Arvore
-        game.fonte.draw(game.batch, "Arvore Ancia", 1110, 175);
-        game.fonte.draw(game.batch, "$200 | Gera Renda", 1110, 155);
-
-        // 7. Upgrade de Vida
         game.fonte.setColor(upgradeVidaComprado ? Color.GOLD : Color.WHITE);
         game.fonte.draw(game.batch, "7. Scanner de Vida", 1110, 75);
-        game.fonte.draw(game.batch, upgradeVidaComprado ? "COMPRADO" : "$" + CUSTO_UPGRADE_VIDA, 1110, 55);
+        game.fonte.draw(game.batch, upgradeVidaComprado ? "COMPRADO" : "$300", 1110, 55);
 
         if (isGameOver) {
             game.fonte.setColor(Color.RED);
             game.fonte.getData().setScale(3.0f);
-            game.fonte.draw(game.batch, "GAME OVER", 1280 / 2f - 150, 720 / 2f);
-        }
+            game.fonte.draw(game.batch, "GAME OVER", 1280 / 2f - 150, 720 / 2f + 50);
 
+            game.fonte.setColor(Color.WHITE);
+            game.fonte.getData().setScale(1.5f);
+            game.fonte.draw(game.batch, "Clique na tela ou aperte ENTER para recomecar", 1280 / 2f - 260, 720 / 2f - 20);
+        }
         game.batch.end();
 
-        // Desenha as barras de vida apenas se o upgrade foi comprado
+        // Barras de Vida (se comprado)
         if (upgradeVidaComprado) {
-
-            // CORREÇÃO: Reafirma as coordenadas da câmera para a placa de vídeo
             game.shape.setProjectionMatrix(camera.combined);
-
             game.shape.begin(ShapeRenderer.ShapeType.Filled);
-            for (EntidadeJogo entidade : entidades) {
-                if (entidade instanceof Inimigo && entidade.isAtivo()) {
-                    Inimigo inimigo = (Inimigo) entidade;
-
-                    // 1. Desenha o fundo vermelho (vida perdida)
+            for (EntidadeJogo ent : entidades) {
+                if (ent instanceof Inimigo && ent.isAtivo()) {
+                    Inimigo ini = (Inimigo) ent;
                     game.shape.setColor(Color.RED);
-                    game.shape.rect(inimigo.x, inimigo.y + 35, 30, 5);
-
-                    // 2. Calcula a largura da vida atual
-                    float larguraVida = ( (float) inimigo.getVida() / inimigo.getVidaMaxima() ) * 30;
-
-                    // 3. Desenha a barra verde por cima
+                    game.shape.rect(ini.x, ini.y + 35, 30, 5);
                     game.shape.setColor(Color.GREEN);
-                    game.shape.rect(inimigo.x, inimigo.y + 35, larguraVida, 5);
+                    game.shape.rect(ini.x, ini.y + 35, ((float) ini.getVida() / ini.getVidaMaxima()) * 30, 5);
                 }
             }
             game.shape.end();
+        }
+
+        // Preview de construção: só aparece se NÃO estiver pausado
+        if (!isPaused && !isGameOver) {
+            gerenciadorConstrucao.renderizarPreview();
+        }
+
+        // ==========================================
+        // SOBREPOSIÇÃO DA TELA DE PAUSE
+        // ==========================================
+        if (isPaused && !isGameOver) {
+            // Habilita transparência
+            Gdx.gl.glEnable(GL20.GL_BLEND);
+            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+            game.shape.setProjectionMatrix(camera.combined);
+            game.shape.begin(ShapeRenderer.ShapeType.Filled);
+            game.shape.setColor(0, 0, 0, 0.7f); // Preto com 70% de transparência
+            game.shape.rect(0, 0, 1280, 720);
+            game.shape.end();
+
+            Gdx.gl.glDisable(GL20.GL_BLEND);
+
+            game.batch.begin();
+            game.fonte.setColor(Color.YELLOW);
+            game.fonte.getData().setScale(3.0f);
+            game.fonte.draw(game.batch, "PAUSADO", 1280 / 2f - 110, 720 / 2f + 50);
+
+            game.fonte.setColor(Color.WHITE);
+            game.fonte.getData().setScale(1.5f);
+            game.fonte.draw(game.batch, "Aperte ESC para continuar", 1280 / 2f - 160, 720 / 2f - 20);
+            game.batch.end();
         }
     }
 
@@ -322,9 +339,23 @@ public class TelaJogo implements Screen {
         viewport.update(width, height);
     }
 
-    @Override public void show() {}
-    @Override public void pause() {}
-    @Override public void resume() {}
-    @Override public void hide() {}
-    @Override public void dispose() {}
+    @Override
+    public void show() {
+    }
+
+    @Override
+    public void pause() {
+    }
+
+    @Override
+    public void resume() {
+    }
+
+    @Override
+    public void hide() {
+    }
+
+    @Override
+    public void dispose() {
+    }
 }

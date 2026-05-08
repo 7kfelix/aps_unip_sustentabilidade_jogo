@@ -1,10 +1,11 @@
 package br.unip.aps.sustentabilidade;
 
+import java.util.List;
+
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
-import java.util.List;
 
 public class Torre extends EntidadeJogo {
 
@@ -29,23 +30,23 @@ public class Torre extends EntidadeJogo {
         Color cor;
         switch (tipo) {
             case MACACO: // Splash AoE
-                this.alcance = 150.0f; this.dano = 40; this.taxaDeTiro = 1.2f; cor = Color.CYAN;
+                this.alcance = 150.0f; this.dano = 80; this.taxaDeTiro = 1.2f; cor = Color.CYAN;
                 break;
             case PLANTA: // CC / Root
-                this.alcance = 120.0f; this.dano = 10; this.taxaDeTiro = 2.0f; cor = Color.FOREST;
+                this.alcance = 120.0f; this.dano = 10; this.taxaDeTiro = 0.5f; cor = Color.FOREST;
                 break;
-            case BAMBU: // Sniper
-                this.alcance = 2000.0f; this.dano = 200; this.taxaDeTiro = 2.5f; cor = Color.WHITE;
+            case BAMBU: // Sniper (Moggador)
+                this.alcance = 1500.0f; this.dano = 450; this.taxaDeTiro = 0.2f; cor = Color.WHITE;
                 break;
             case FILTRO: // Dano Contínuo (Aura)
-                this.alcance = 100.0f; this.dano = 5; this.taxaDeTiro = 0.2f; cor = Color.ROYAL;
+                this.alcance = 100.0f; this.dano = 35; this.taxaDeTiro = 0.2f; cor = Color.ROYAL;
                 break;
-            case ARVORE: // Economia (Gera 20 moedas a cada 5 segundos)
-                this.alcance = 0f; this.dano = 0; this.taxaDeTiro = 5.0f; cor = Color.LIME;
+            case ARVORE: // Economia (Gera 20 moedas a cada 10 segundos)
+                this.alcance = 0f; this.dano = 0; this.taxaDeTiro = 10.0f; cor = Color.LIME;
                 break;
             case SEMENTEIRA: // O Dart Monkey
             default:
-                this.alcance = 150.0f; this.dano = 30; this.taxaDeTiro = 0.8f; cor = Color.BLUE;
+                this.alcance = 150.0f; this.dano = 50; this.taxaDeTiro = 0.8f; cor = Color.BLUE;
                 break;
         }
         this.custo = getCusto(tipo);
@@ -55,11 +56,22 @@ public class Torre extends EntidadeJogo {
     public static int getCusto(Tipo tipo) {
         switch (tipo) {
             case ARVORE: return 200;
-            case BAMBU: return 150;
+            case BAMBU: return 650;
             case MACACO: return 120;
             case PLANTA: return 100;
             case FILTRO: return 80;
             case SEMENTEIRA: default: return 50;
+        }
+    }
+
+    public static float getAlcanceParaPreview(Tipo tipo) {
+        switch (tipo) {
+            case MACACO: return 150.0f;
+            case PLANTA: return 120.0f;
+            case BAMBU: return 1500.0f;
+            case FILTRO: return 100.0f;
+            case ARVORE: return 0f;
+            case SEMENTEIRA: default: return 150.0f;
         }
     }
 

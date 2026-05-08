@@ -1,10 +1,11 @@
 package br.unip.aps.sustentabilidade;
 
+import java.util.List;
+
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
-import java.util.List;
 
 public class Inimigo extends EntidadeJogo {
 
@@ -23,45 +24,71 @@ public class Inimigo extends EntidadeJogo {
     private TelaJogo jogoPrincipal;
     private Tipo tipo;
 
-    public Inimigo(float x, float y, Tipo tipo, List<Vector2> caminho, TelaJogo jogoPrincipal) {
+    // onda atual adicionado
+    public Inimigo(float x, float y, Tipo tipo, List<Vector2> caminho, TelaJogo jogoPrincipal, int ondaAtual) {
         super(x, y, null);
         this.caminho = caminho;
         this.jogoPrincipal = jogoPrincipal;
         this.indiceAlvoAtual = 0;
         this.tipo = tipo;
 
+        // status base
+        float velocidadeBase;
+        int vidaBase;
         Color cor;
+
         switch (tipo) {
             case FUMACA:
-                this.vida = 40;
-                this.velocidade = 280.0f;
-                this.recompensa = 5;
+                vidaBase = 40;
+                velocidadeBase = 280.0f;
+                this.recompensa = 3;
                 cor = Color.DARK_GRAY;
                 break;
             case BARRIL:
-                this.vida = 500;
-                this.velocidade = 70.0f;
+                vidaBase = 500;
+                velocidadeBase = 70.0f;
                 this.recompensa = 30;
                 cor = Color.OLIVE;
                 break;
             case CHUVA:
-                this.vida = 20;
-                this.velocidade = 160.0f;
-                this.recompensa = 2;
+                vidaBase = 20;
+                velocidadeBase = 160.0f;
+                this.recompensa = 1;
                 cor = Color.PURPLE;
                 break;
             case SACOLA:
             default:
-                this.vida = 100;
-                this.velocidade = 150.0f;
-                this.recompensa = 10;
+                vidaBase = 100;
+                velocidadeBase = 150.0f;
+                this.recompensa = 4; // Economia nerfada que conversamos
                 cor = Color.WHITE;
                 break;
         }
 
-        // A lógica matemática precisa ficar AQUI DENTRO do construtor!
-        this.vidaMaxima = this.vida;
+        // SISTEMA DE ESCALONAMENTO CONTÍNUO
+        // Aumenta vida e velocidade por onda passada
+        float multiplicadorVida = 1.0f + ((ondaAtual - 1) * 0.15f);
+        float multiplicadorVelocidade = 1.0f + ((ondaAtual - 1) * 0.02f);
 
+        // 3. PICOS DE DIFICULDADE (Ondas 15 e 30)
+        float multiplicadorDePico = 1.0f;
+        if (ondaAtual >= 30) {
+            multiplicadorDePico = 4.0f; // Dobra (x2 na 15) e dobra de novo (x2 na 30) = x4
+        } else if (ondaAtual >= 15) {
+            multiplicadorDePico = 2.0f; // Dobra a partir da onda 15
+        }
+
+        // 4. APLICAMOS OS BUFFS TOTAIS
+        this.vida = (int) (vidaBase * multiplicadorVida * multiplicadorDePico);
+        this.velocidade = velocidadeBase * multiplicadorVelocidade * multiplicadorDePico;
+
+        // Limite de velocidade de segurança para o inimigo não "teleportar" 
+        // e atravessar as curvas da estrada em ondas muito altas
+        if (this.velocidade > 450.0f) {
+            this.velocidade = 450.0f;
+        }
+
+        this.vidaMaxima = this.vida;
         this.textura = criarTexturaQuadrada(30, cor);
     }
 

@@ -1,7 +1,8 @@
 package br.unip.aps.sustentabilidade;
 
-import com.badlogic.gdx.math.Vector2;
 import java.util.List;
+
+import com.badlogic.gdx.math.Vector2;
 
 public class GeradorDeOndas {
 
@@ -72,7 +73,7 @@ public class GeradorDeOndas {
                     tempoAcumulado = 0f; // Reseta normal
                 }
 
-                Inimigo novoInimigo = new Inimigo(200, 720, tipoSorteado, rotaDoMapa, telaJogo);
+                Inimigo novoInimigo = new Inimigo(200, 720, tipoSorteado, rotaDoMapa, telaJogo, ondaAtual);
                 todasEntidades.add(novoInimigo);
 
                 inimigosJaGerados++;
