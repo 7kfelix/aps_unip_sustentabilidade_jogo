@@ -171,16 +171,21 @@ public class TelaJogo implements Screen {
 
                     gerenciadorConstrucao.setTorreSelecionada(torreSelecionada);
                 }
+
                 // --- 3. CLIQUE NO MAPA PARA CONSTRUIR ---
                 else {
-                    float posRealX = toque.x - 20f;
-                    float posRealY = toque.y - 20f;
+                    // Pega o tamanho exato dessa torre e divide por 2 para centralizar no clique
+                    int tamanhoConstrucao = Torre.getTamanhoColisao(torreSelecionada);
+                    float posRealX = toque.x - (tamanhoConstrucao / 2f);
+                    float posRealY = toque.y - (tamanhoConstrucao / 2f);
 
                     if (gerenciadorConstrucao.podeConstruirAqui(posRealX, posRealY)) {
                         int custo = Torre.getCusto(torreSelecionada);
                         if (ecoMoedas >= custo) {
                             ecoMoedas -= custo;
-                            Torre novaTorre = new Torre(posRealX, posRealY, torreSelecionada, entidades, this);
+
+                            // PASSE A ROTA AQUI:
+                            Torre novaTorre = new Torre(posRealX, posRealY, torreSelecionada, entidades, rotaDoMapa, this);
 
                             if (upLentes) novaTorre.buffAlcance(1.25f);
                             if (upEngrenagens) novaTorre.buffRecarga(0.80f);
@@ -266,6 +271,12 @@ public class TelaJogo implements Screen {
 
         // Sprites, Entidades e HUD
         game.batch.begin();
+
+        // --- A MÁGICA DA PROFUNDIDADE ACONTECE AQUI! ---
+        // Ele vai olhar todo mundo. Quem tiver o Y MAIOR (mais no fundo da tela),
+        // vai pro início da lista e é desenhado primeiro. Os da frente passam por cima!
+        entidades.sort((e1, e2) -> Float.compare(e2.y, e1.y));
+
         for (EntidadeJogo ent : entidades) {
             ent.renderizar(game.batch);
         }

@@ -2,19 +2,20 @@ package br.unip.aps.sustentabilidade;
 
 import java.util.List;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
 
 public class Inimigo extends EntidadeJogo {
 
-    // NOVO: Adicionado o ONIBUS
     public enum Tipo { SACOLA, FUMACA, BARRIL, CHUVA, ONIBUS }
 
     private float velocidade;
     private int vida;
-
     private int vidaMaxima;
     private float tempoParalisado = 0f;
 
@@ -24,8 +25,12 @@ public class Inimigo extends EntidadeJogo {
     private TelaJogo jogoPrincipal;
     private Tipo tipo;
 
-    // NOVO: Precisamos salvar a onda atual para saber quantos inimigos o Boss vai cuspir
     private int ondaAtual;
+
+    // --- VARIÁVEIS DE ANIMAÇÃO ---
+    private TextureRegion[] framesAnimacao;
+    private float tempoAnimacaoAtual = 0f;
+    private int tamanhoQuadradoFallback; // Guarda o tamanho caso precise do quadrado colorido
 
     public Inimigo(float x, float y, Tipo tipo, List<Vector2> caminho, TelaJogo jogoPrincipal, int ondaAtual) {
         super(x, y, null);
@@ -39,15 +44,15 @@ public class Inimigo extends EntidadeJogo {
         float velocidadeBase;
         int vidaBase;
         Color cor;
-        int tamanhoQuadrado = 30; // Padrão
+        this.tamanhoQuadradoFallback = 30; // Padrão
 
         switch (tipo) {
-            case ONIBUS: // STATUS DO BOSS
-                vidaBase = 3500; // Vida absurda base (ainda vai multiplicar pela onda!)
-                velocidadeBase = 45.0f; // Bem lento, um trator
+            case ONIBUS:
+                vidaBase = 3500;
+                velocidadeBase = 45.0f;
                 this.recompensa = 250;
-                cor = Color.ORANGE; // Visual do busão
-                tamanhoQuadrado = 50; // Maior que os outros!
+                cor = Color.ORANGE;
+                this.tamanhoQuadradoFallback = 50;
                 break;
             case FUMACA:
                 vidaBase = 40;
@@ -61,7 +66,7 @@ public class Inimigo extends EntidadeJogo {
                 this.recompensa = 30;
                 cor = Color.OLIVE;
                 break;
-            case CHUVA:
+            case CHUVA: // Vamos usar a nuvem.png para a Chuva!
                 vidaBase = 20;
                 velocidadeBase = 160.0f;
                 this.recompensa = 1;
@@ -78,16 +83,11 @@ public class Inimigo extends EntidadeJogo {
 
         float multiplicadorVida = 1.0f + ((ondaAtual - 1) * 0.15f);
         float multiplicadorVelocidade = 1.0f + ((ondaAtual - 1) * 0.02f);
-
         float multiplicadorDePico = 1.0f;
-        if (ondaAtual >= 30) {
-            multiplicadorDePico = 4.0f;
-        } else if (ondaAtual >= 15) {
-            multiplicadorDePico = 2.0f;
-        }
-        else if (ondaAtual >= 60) {
-            multiplicadorDePico = 10.5f;
-        }
+
+        if (ondaAtual >= 30) multiplicadorDePico = 4.0f;
+        else if (ondaAtual >= 15) multiplicadorDePico = 2.0f;
+        else if (ondaAtual >= 60) multiplicadorDePico = 10.5f;
 
         this.vida = (int) (vidaBase * multiplicadorVida * multiplicadorDePico);
         this.velocidade = velocidadeBase * multiplicadorVelocidade * multiplicadorDePico;
@@ -98,8 +98,79 @@ public class Inimigo extends EntidadeJogo {
 
         this.vidaMaxima = this.vida;
 
-        // Passamos o tamanho variável agora para o ônibus ficar gordão
-        this.textura = criarTexturaQuadrada(tamanhoQuadrado, cor);
+        // --- SISTEMA AUTOMÁTICO DE CARREGAR SPRITESHEETS ---
+        String nomeArquivo = "";
+        switch (tipo) {
+            case FUMACA: nomeArquivo = "fumaca.png"; break;
+            case BARRIL: nomeArquivo = "barril.png"; break;
+            case CHUVA:  nomeArquivo = "nuvem.png"; break;
+            case ONIBUS: nomeArquivo = "onibus.png"; break;
+            case SACOLA: default: nomeArquivo = "sacola.png"; break;
+        }
+
+        try {
+            Texture spriteSheet = new Texture(nomeArquivo);
+            int tamanhoFrame = spriteSheet.getHeight();
+            int qtdFrames = spriteSheet.getWidth() / tamanhoFrame;
+
+            framesAnimacao = new TextureRegion[qtdFrames];
+            for (int i = 0; i < qtdFrames; i++) {
+                framesAnimacao[i] = new TextureRegion(spriteSheet, i * tamanhoFrame, 0, tamanhoFrame, tamanhoFrame);
+            }
+            this.textura = null;
+        } catch (Exception e) {
+            System.out.println("Aviso: Imagem " + nomeArquivo + " nao encontrada. Usando quadrado provisorio.");
+            this.textura = criarTexturaQuadrada(this.tamanhoQuadradoFallback, cor);
+        }
+    }
+
+    @Override
+    public void renderizar(SpriteBatch batch) {
+
+        // Diminuiu os normais para 85f!
+        float tamanhoVisual = 85f;
+
+        if (this.tipo == Tipo.ONIBUS) {
+            tamanhoVisual = 170f;
+        } else if (this.tipo == Tipo.BARRIL) {
+            tamanhoVisual = 120f;
+        }
+
+        float compensacao = (tamanhoVisual - this.tamanhoQuadradoFallback) / 2f;
+        float desenhoX = this.x - compensacao;
+        float desenhoY = this.y - compensacao;
+
+        boolean deveInverter = false;
+
+        if (caminho != null && indiceAlvoAtual < caminho.size()) {
+            Vector2 proximoAlvo = caminho.get(indiceAlvoAtual);
+            float difX = proximoAlvo.x - this.x;
+            float difY = proximoAlvo.y - this.y;
+
+            if (Math.abs(difX) > Math.abs(difY)) {
+                if (difX > 0) {
+                    deveInverter = true;
+                }
+            }
+        }
+
+        if (framesAnimacao != null) {
+            int frameAtual = 0;
+            if (framesAnimacao.length > 1) {
+                frameAtual = (int) ((tempoAnimacaoAtual / 0.15f) % framesAnimacao.length);
+            }
+
+            batch.draw(
+                framesAnimacao[frameAtual],
+                desenhoX, desenhoY,
+                tamanhoVisual / 2f, tamanhoVisual / 2f,
+                tamanhoVisual, tamanhoVisual,
+                deveInverter ? -1f : 1f, 1f,
+                0f
+            );
+        } else if (this.textura != null) {
+            batch.draw(textura, this.x, this.y, tamanhoQuadradoFallback, tamanhoQuadradoFallback);
+        }
     }
 
     private Texture criarTexturaQuadrada(int tamanho, Color cor) {
@@ -116,52 +187,35 @@ public class Inimigo extends EntidadeJogo {
 
         if (this.vida <= 0 && this.ativo) {
             this.ativo = false;
-
-            // NOVO: Se quem morreu for o Ônibus, ativa o Cavalo de Troia!
             if (this.tipo == Tipo.ONIBUS) {
                 explodirOnibus();
             }
-
             return true;
         }
         return false;
     }
 
-    // NOVO: A Lógica de soltar as tropas
     private void explodirOnibus() {
         System.out.println("O BUSÃO EXPLODIU! SOLTANDO TROPAS!");
 
-        // Aumenta de 20 em 20. Onda 20 = 5 tropas | Onda 40 = 10 tropas | Onda 60 = 15 tropas...
         int quantidadeTropas = (this.ondaAtual / 20) * 5;
-        if (quantidadeTropas < 5) quantidadeTropas = 5; // Garantia
+        if (quantidadeTropas < 5) quantidadeTropas = 5;
 
         for (int i = 0; i < quantidadeTropas; i++) {
-            // Sorteia um número de 0 a 3 (Ignora o ônibus para não criar um loop infinito)
             int sorteio = (int) (Math.random() * 4);
             Tipo tipoSorteado = Tipo.values()[sorteio];
 
-            // Coloca um pequeno desvio (offset) na posição para as tropas não nascerem 100% grudadas
             float offsetX = (float) (Math.random() * 30 - 15);
             float offsetY = (float) (Math.random() * 30 - 15);
 
             Inimigo novaTropa = new Inimigo(this.x + offsetX, this.y + offsetY, tipoSorteado, this.caminho, this.jogoPrincipal, this.ondaAtual);
-
-            // A Tropa precisa saber em qual ponto do mapa o Ônibus morreu, para continuar dali
             novaTropa.indiceAlvoAtual = this.indiceAlvoAtual;
-
-            // Injeta a tropa direto na lista do jogo!
             jogoPrincipal.adicionarEntidadeAoJogo(novaTropa);
         }
     }
 
-    public int getRecompensa() {
-        return recompensa;
-    }
-
-    public void aplicarEnraizamento(float tempo) {
-        this.tempoParalisado = tempo;
-    }
-
+    public int getRecompensa() { return recompensa; }
+    public void aplicarEnraizamento(float tempo) { this.tempoParalisado = tempo; }
     public int getVida() { return vida; }
     public int getVidaMaxima() { return vidaMaxima; }
 
@@ -169,7 +223,6 @@ public class Inimigo extends EntidadeJogo {
     public void atualizar(float deltaTime) {
         if (caminho == null || indiceAlvoAtual >= caminho.size()) {
             if (this.ativo) {
-                // NOVO: Hit Kill se o ônibus chegar no núcleo
                 if (this.tipo == Tipo.ONIBUS) {
                     jogoPrincipal.sofrerDanoNaBase(9999);
                     System.out.println("O ONIBUS CHEGOU NA BASE! DESTRUIÇÃO TOTAL!");
@@ -183,8 +236,11 @@ public class Inimigo extends EntidadeJogo {
 
         if (tempoParalisado > 0) {
             tempoParalisado -= deltaTime;
-            return;
+            return; // Se estiver paralisado pela raiz, ele não anda nem atualiza o frame da animação
         }
+
+        // --- ATUALIZA A ANIMAÇÃO DE "ANDAR" ---
+        tempoAnimacaoAtual += deltaTime;
 
         Vector2 destino = caminho.get(indiceAlvoAtual);
         float distanciaX = destino.x - this.x;

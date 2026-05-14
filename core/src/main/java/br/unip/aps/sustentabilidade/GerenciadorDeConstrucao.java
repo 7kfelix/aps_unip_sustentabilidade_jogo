@@ -17,8 +17,6 @@ public class GerenciadorDeConstrucao {
     private Torre.Tipo torreSelecionada = Torre.Tipo.SEMENTEIRA;
     private float mouseX;
     private float mouseY;
-
-    // NOVO: Controle para saber se a loja está na tela
     private boolean menuAberto = true;
 
     public GerenciadorDeConstrucao(SustentabilidadeGame game, TelaJogo telaJogo, List<EntidadeJogo> entidades, List<Vector2> rotaDoMapa) {
@@ -28,33 +26,18 @@ public class GerenciadorDeConstrucao {
         this.rotaDoMapa = rotaDoMapa;
     }
 
-    public void setTorreSelecionada(Torre.Tipo tipo) {
-        this.torreSelecionada = tipo;
-    }
-
-    public Torre.Tipo getTorreSelecionada() {
-        return torreSelecionada;
-    }
-
-    public void atualizarMouse(float x, float y) {
-        this.mouseX = x;
-        this.mouseY = y;
-    }
-
-    // NOVO: A TelaJogo vai chamar isso toda vez que abrir/fechar a loja
-    public void setMenuAberto(boolean aberto) {
-        this.menuAberto = aberto;
-    }
+    public void setTorreSelecionada(Torre.Tipo tipo) { this.torreSelecionada = tipo; }
+    public Torre.Tipo getTorreSelecionada() { return torreSelecionada; }
+    public void atualizarMouse(float x, float y) { this.mouseX = x; this.mouseY = y; }
+    public void setMenuAberto(boolean aberto) { this.menuAberto = aberto; }
 
     public boolean podeConstruirAqui(float x, float y) {
-        // 1. BLOQUEIO DA ÁREA DO MENU (Agora SÓ bloqueia se a loja estiver aberta!)
-        if (menuAberto && (x + 40 > 1050)) {
-            return false;
-        }
+        int tamanho = Torre.getTamanhoColisao(torreSelecionada); // Pega se é 40 ou 55!
 
-        Rectangle rectNovaTorre = new Rectangle(x, y, 40, 40);
+        if (menuAberto && (x + tamanho > 1050)) return false;
 
-        // 2. Colisão com a Estrada
+        Rectangle rectNovaTorre = new Rectangle(x, y, tamanho, tamanho);
+
         for (int i = 0; i < rotaDoMapa.size() - 1; i++) {
             Vector2 p1 = rotaDoMapa.get(i);
             Vector2 p2 = rotaDoMapa.get(i + 1);
@@ -65,44 +48,38 @@ public class GerenciadorDeConstrucao {
             float height = Math.abs(p1.y - p2.y) + 40f;
 
             Rectangle rectEstrada = new Rectangle(minX, minY, width, height);
-
-            if (rectNovaTorre.overlaps(rectEstrada)) {
-                return false;
-            }
+            if (rectNovaTorre.overlaps(rectEstrada)) return false;
         }
 
-        // 3. Colisão com outras Torres
         for (EntidadeJogo entidade : entidades) {
             if (entidade instanceof Torre) {
-                Rectangle rectTorreExistente = new Rectangle(entidade.x, entidade.y, 40, 40);
-                if (rectNovaTorre.overlaps(rectTorreExistente)) {
-                    return false;
-                }
+                Torre t = (Torre) entidade;
+                int tamTorre = Torre.getTamanhoColisao(t.getTipo()); // Checa a torre que já tá no chão
+                Rectangle rectTorreExistente = new Rectangle(t.x, t.y, tamTorre, tamTorre);
+                if (rectNovaTorre.overlaps(rectTorreExistente)) return false;
             }
         }
         return true;
     }
 
     public void renderizarPreview() {
-        // SÓ esconde o preview na lateral direita se a loja estiver aberta
         if (menuAberto && mouseX > 1050) return;
 
-        float previewX = mouseX - 20f;
-        float previewY = mouseY - 20f;
+        int tamanho = Torre.getTamanhoColisao(torreSelecionada);
+        // Centraliza o mouse baseado no tamanho exato da torre
+        float previewX = mouseX - (tamanho / 2f);
+        float previewY = mouseY - (tamanho / 2f);
 
         boolean localValido = podeConstruirAqui(previewX, previewY);
 
         game.shape.begin(ShapeRenderer.ShapeType.Line);
 
-        if (localValido) {
-            game.shape.setColor(Color.GREEN);
-        } else {
-            game.shape.setColor(Color.RED);
-        }
-        game.shape.rect(previewX, previewY, 40, 40);
+        if (localValido) game.shape.setColor(Color.GREEN);
+        else game.shape.setColor(Color.RED);
+
+        game.shape.rect(previewX, previewY, tamanho, tamanho);
 
         float alcance = Torre.getAlcanceParaPreview(torreSelecionada);
-
         if (alcance > 0) {
             game.shape.setColor(Color.LIGHT_GRAY);
             game.shape.circle(mouseX, mouseY, alcance);
