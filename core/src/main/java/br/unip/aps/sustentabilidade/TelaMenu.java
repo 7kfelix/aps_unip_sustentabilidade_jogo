@@ -53,9 +53,9 @@ public class TelaMenu implements Screen {
             }
             // NOVO: Verifica se clicou no "Configurações" (Y entre 250 e 350)
             else if (toque.y > 250 && toque.y < 350) {
-                game.setScreen(new TelaConfiguracoes(game));
-                dispose();
+                game.setScreen(new TelaConfiguracoes(game, this));
             }
+
             // Verifica se clicou no "Sair" (Y entre 150 e 250)
             else if (toque.y > 150 && toque.y < 250) {
                 Gdx.app.exit();

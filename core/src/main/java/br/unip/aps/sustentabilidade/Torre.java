@@ -75,6 +75,19 @@ public class Torre extends EntidadeJogo {
         }
     }
 
+    // MÉTODOS NOVOS PARA RECEBER OS UPGRADES DA LOJA
+    public void buffAlcance(float multiplicador) {
+        this.alcance *= multiplicador;
+    }
+
+    public void buffRecarga(float multiplicador) {
+        this.taxaDeTiro *= multiplicador;
+    }
+
+    public void buffDano(float multiplicador) {
+        this.dano = (int)(this.dano * multiplicador);
+    }
+
     private Texture criarTexturaQuadrada(int tamanho, Color cor) {
         Pixmap pixmap = new Pixmap(tamanho, tamanho, Pixmap.Format.RGBA8888);
         pixmap.setColor(cor);
@@ -123,6 +136,7 @@ public class Torre extends EntidadeJogo {
 
                         tempoDesdeUltimoTiro = 0f;
                         break; // Atirou em um, para de procurar.
+
                     }
                 }
             }

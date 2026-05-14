@@ -18,6 +18,9 @@ public class GerenciadorDeConstrucao {
     private float mouseX;
     private float mouseY;
 
+    // NOVO: Controle para saber se a loja está na tela
+    private boolean menuAberto = true;
+
     public GerenciadorDeConstrucao(SustentabilidadeGame game, TelaJogo telaJogo, List<EntidadeJogo> entidades, List<Vector2> rotaDoMapa) {
         this.game = game;
         this.telaJogo = telaJogo;
@@ -25,7 +28,6 @@ public class GerenciadorDeConstrucao {
         this.rotaDoMapa = rotaDoMapa;
     }
 
-    // Atualiza a escolha do jogador
     public void setTorreSelecionada(Torre.Tipo tipo) {
         this.torreSelecionada = tipo;
     }
@@ -34,22 +36,25 @@ public class GerenciadorDeConstrucao {
         return torreSelecionada;
     }
 
-    // Atualiza onde o mouse está apontando neste exato frame
     public void atualizarMouse(float x, float y) {
         this.mouseX = x;
         this.mouseY = y;
     }
 
-    // A lógica perfeita de colisão usando Retângulos Exatos
+    // NOVO: A TelaJogo vai chamar isso toda vez que abrir/fechar a loja
+    public void setMenuAberto(boolean aberto) {
+        this.menuAberto = aberto;
+    }
+
     public boolean podeConstruirAqui(float x, float y) {
-        // 1. BLOQUEIO DA ÁREA DO MENU (Nada de construir em cima da interface!)
-        if (x + 40 > 1050) {
+        // 1. BLOQUEIO DA ÁREA DO MENU (Agora SÓ bloqueia se a loja estiver aberta!)
+        if (menuAberto && (x + 40 > 1050)) {
             return false;
         }
 
         Rectangle rectNovaTorre = new Rectangle(x, y, 40, 40);
 
-        // 2. Colisão com a Estrada (Garante que não pise 1 pixel na rua)
+        // 2. Colisão com a Estrada
         for (int i = 0; i < rotaDoMapa.size() - 1; i++) {
             Vector2 p1 = rotaDoMapa.get(i);
             Vector2 p2 = rotaDoMapa.get(i + 1);
@@ -78,38 +83,28 @@ public class GerenciadorDeConstrucao {
         return true;
     }
 
-    // O método que a TelaJogo vai chamar para desenhar os gráficos de preview
     public void renderizarPreview() {
-        // Se o mouse estiver em cima do menu de compras, não desenha preview
-        if (mouseX > 1050) return;
+        // SÓ esconde o preview na lateral direita se a loja estiver aberta
+        if (menuAberto && mouseX > 1050) return;
 
-        // Subtraímos 20 para o X e Y representarem a quina da torre, 
-        // mantendo o mouse exatamente no centro dela.
         float previewX = mouseX - 20f;
         float previewY = mouseY - 20f;
 
         boolean localValido = podeConstruirAqui(previewX, previewY);
 
-        // Iniciamos o desenho em modo LINHA (apenas contornos)
         game.shape.begin(ShapeRenderer.ShapeType.Line);
 
-        // 1. DESENHA A BORDA DA TORRE (Verde = Pode / Vermelho = Bloqueado)
         if (localValido) {
-            game.shape.setColor(Color.GREEN); 
+            game.shape.setColor(Color.GREEN);
         } else {
-            game.shape.setColor(Color.RED); 
+            game.shape.setColor(Color.RED);
         }
         game.shape.rect(previewX, previewY, 40, 40);
 
-        // 2. DESENHA O CÍRCULO DE ALCANCE
         float alcance = Torre.getAlcanceParaPreview(torreSelecionada);
-        
-        // Se o alcance for 0 (como a Árvore de dinheiro), não desenha o círculo
+
         if (alcance > 0) {
-            // Um cinza claro para diferenciar da borda de construção
-            game.shape.setColor(Color.LIGHT_GRAY); 
-            
-            // O círculo é desenhado a partir do centro (mouseX, mouseY) com o raio do alcance
+            game.shape.setColor(Color.LIGHT_GRAY);
             game.shape.circle(mouseX, mouseY, alcance);
         }
 

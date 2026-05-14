@@ -20,6 +20,7 @@ public class GeradorDeOndas {
     private float tempoAcumulado;
     private boolean emTempoDeDescanso;
     private float tempoDeDescansoEntreOndas;
+    private boolean ondasIniciadas = false;
 
     // ATUALIZADO: Construtor limpo, recebendo apenas 3 parâmetros
     public GeradorDeOndas(List<EntidadeJogo> todasEntidades, List<Vector2> rotaDoMapa, TelaJogo telaJogo) {
@@ -36,7 +37,22 @@ public class GeradorDeOndas {
         this.tempoDeDescansoEntreOndas = 5.0f;
     }
 
+    // 2. ADICIONE ESTES DOIS MÉTODOS NOVOS (Pode ser embaixo do construtor):
+    public void iniciarOndas() {
+        this.ondasIniciadas = true;
+    }
+
+    public boolean isOndasIniciadas() {
+        return ondasIniciadas;
+    }
+
+    // 3. ATUALIZE O INÍCIO DO MÉTODO atualizar():
     public void atualizar(float deltaTime) {
+        // Se as ondas não foram iniciadas, ele simplesmente cancela o método e não conta o tempo
+        if (!ondasIniciadas) {
+            return;
+        }
+
         tempoAcumulado += deltaTime;
 
         if (emTempoDeDescanso) {
@@ -49,28 +65,32 @@ public class GeradorDeOndas {
         if (inimigosJaGerados < totalInimigosNestaOnda) {
             if (tempoAcumulado >= intervaloDeSpawn) {
 
-                // SISTEMA DE SORTEIO BASEADO NA ONDA
-                Inimigo.Tipo tipoSorteado = Inimigo.Tipo.SACOLA; // Padrão
+                Inimigo.Tipo tipoSorteado = Inimigo.Tipo.SACOLA;
 
-                // Um número aleatório de 0.0 a 1.0 para definir a chance
-                float sorteio = (float) Math.random();
-
-                if (ondaAtual >= 4 && sorteio > 0.85f) {
-                    tipoSorteado = Inimigo.Tipo.BARRIL;  // 15% de chance a partir da onda 4
-                }
-                else if (ondaAtual >= 3 && sorteio > 0.60f) {
-                    tipoSorteado = Inimigo.Tipo.CHUVA;   // 25% de chance a partir da onda 3
-                }
-                else if (ondaAtual >= 2 && sorteio > 0.30f) {
-                    tipoSorteado = Inimigo.Tipo.FUMACA;  // 30% de chance a partir da onda 2
-                }
-
-                // Se o inimigo sorteado for CHUVA, fazemos o próximo inimigo nascer
-                // BEM mais rápido para criar o efeito de "Enxame"
-                if (tipoSorteado == Inimigo.Tipo.CHUVA) {
-                    tempoAcumulado = intervaloDeSpawn - 0.2f; // Corta o cooldown do gerador quase a zero
-                } else {
+                // SE FOR MÚLTIPLO DE 20, NASCE SÓ O ONIBUS!
+                if (ondaAtual % 20 == 0) {
+                    tipoSorteado = Inimigo.Tipo.ONIBUS;
                     tempoAcumulado = 0f; // Reseta normal
+                }
+                else {
+                    // SORTEIO NORMAL PARA AS OUTRAS ONDAS
+                    float sorteio = (float) Math.random();
+
+                    if (ondaAtual >= 4 && sorteio > 0.85f) {
+                        tipoSorteado = Inimigo.Tipo.BARRIL;
+                    }
+                    else if (ondaAtual >= 3 && sorteio > 0.60f) {
+                        tipoSorteado = Inimigo.Tipo.CHUVA;
+                    }
+                    else if (ondaAtual >= 2 && sorteio > 0.30f) {
+                        tipoSorteado = Inimigo.Tipo.FUMACA;
+                    }
+
+                    if (tipoSorteado == Inimigo.Tipo.CHUVA) {
+                        tempoAcumulado = intervaloDeSpawn - 0.2f;
+                    } else {
+                        tempoAcumulado = 0f;
+                    }
                 }
 
                 Inimigo novoInimigo = new Inimigo(200, 720, tipoSorteado, rotaDoMapa, telaJogo, ondaAtual);
@@ -94,9 +114,37 @@ public class GeradorDeOndas {
         }
     }
 
+
+    // MÉTODO NOVO: Força o gerador a pular para uma onda específica
+    public void pularParaOnda(int novaOnda) {
+        this.ondasIniciadas = true; // Garante que comece se pular a onda!
+        this.ondaAtual = novaOnda;
+
+        // Configura a quantidade de inimigos (1 se for Boss, normal se for outra)
+        if (ondaAtual % 20 == 0) {
+            totalInimigosNestaOnda = 1;
+        } else {
+            totalInimigosNestaOnda = 10 + ((ondaAtual - 1) * 5);
+        }
+
+        // Reseta os cronômetros para a onda começar na hora
+        this.inimigosJaGerados = 0;
+        this.tempoAcumulado = 0f;
+        this.emTempoDeDescanso = false;
+    }
+
     private void prepararProximaOnda() {
         ondaAtual++;
-        totalInimigosNestaOnda = 10 + ((ondaAtual - 1) * 5);
+
+        // SE FOR ONDA DE BOSS (20, 40, 60...), GERA APENAS 1 INIMIGO!
+        if (ondaAtual % 20 == 0) {
+            totalInimigosNestaOnda = 1;
+            System.out.println("ALERTA DE BOSS! PREPARE-SE!");
+        } else {
+            // Lógica normal de inimigos para as outras ondas
+            totalInimigosNestaOnda = 10 + ((ondaAtual - 1) * 5);
+        }
+
         intervaloDeSpawn = Math.max(0.4f, intervaloDeSpawn - 0.1f);
         inimigosJaGerados = 0;
         tempoAcumulado = 0f;
