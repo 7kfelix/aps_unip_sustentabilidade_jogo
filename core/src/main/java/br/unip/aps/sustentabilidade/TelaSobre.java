@@ -3,16 +3,14 @@ package br.unip.aps.sustentabilidade;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
-public class TelaSom implements Screen {
+public class TelaSobre implements Screen {
 
     private SustentabilidadeGame game;
     private OrthographicCamera camera;
@@ -23,7 +21,7 @@ public class TelaSom implements Screen {
     private Texture caixaConfig;
     private Texture btnVoltar;
 
-    public TelaSom(SustentabilidadeGame game, Screen telaAnterior) {
+    public TelaSobre(SustentabilidadeGame game, Screen telaAnterior) {
         this.game = game;
         this.telaAnterior = telaAnterior;
 
@@ -31,8 +29,9 @@ public class TelaSom implements Screen {
         viewport = new FitViewport(1280, 720, camera);
         camera.position.set(1280 / 2f, 720 / 2f, 0);
 
+        // Reaproveitando as artes da tela de configurações!
         try { fundoConfig = new Texture("menuconfig.png"); } catch (Exception e) {}
-        try { caixaConfig = new Texture("caixa_config.png"); } catch (Exception e) {}
+        try { caixaConfig = new Texture("menusobre.png"); } catch (Exception e) {}
         try { btnVoltar = new Texture("btn_voltar.png"); } catch (Exception e) {}
     }
 
@@ -46,19 +45,13 @@ public class TelaSom implements Screen {
         float mouseX = toque.x;
         float mouseY = toque.y;
 
-        boolean hoverMenos = (mouseX >= 440 && mouseX <= 540 && mouseY >= 380 && mouseY <= 460);
-        boolean hoverMais = (mouseX >= 740 && mouseX <= 840 && mouseY >= 380 && mouseY <= 460);
+        // Hitbox do botão voltar
         boolean hoverVoltar = (mouseX >= 540 && mouseX <= 740 && mouseY >= 140 && mouseY <= 200);
 
         if (Gdx.input.justTouched()) {
-            if (hoverMenos && GerenciadorAudio.volume > 0) {
-                GerenciadorAudio.setVolume(GerenciadorAudio.volume - 10);
-            }
-            else if (hoverMais && GerenciadorAudio.volume < 100) {
-                GerenciadorAudio.setVolume(GerenciadorAudio.volume + 10);
-            }
-            else if (hoverVoltar) {
-                game.setScreen(new TelaConfiguracoes(game, telaAnterior));
+            if (hoverVoltar) {
+                if (telaAnterior != null) game.setScreen(telaAnterior);
+                else game.setScreen(new TelaMenu(game));
                 dispose();
             }
         }
@@ -66,9 +59,11 @@ public class TelaSom implements Screen {
         game.batch.setProjectionMatrix(camera.combined);
         game.batch.begin();
 
+        // 1. DESENHA FUNDO E PAINEL
         if (fundoConfig != null) game.batch.draw(fundoConfig, 0, 0, 1280, 720);
         if (caixaConfig != null) game.batch.draw(caixaConfig, 340, 100, 600, 520);
 
+        // 2. DESENHA O BOTÃO VOLTAR
         if (btnVoltar != null) {
             game.batch.setColor(hoverVoltar ? Color.LIGHT_GRAY : Color.WHITE);
             game.batch.draw(btnVoltar, 540, 140, 200, 60);
@@ -78,26 +73,35 @@ public class TelaSom implements Screen {
             game.fonte.draw(game.batch, "<< VOLTAR", 570, 180);
         }
 
-        game.batch.setColor(Color.WHITE);
+        game.batch.setColor(Color.WHITE); // Limpa as cores
 
-        game.fonte.getData().setScale(4.0f);
-        game.fonte.setColor(hoverMenos ? Color.LIGHT_GRAY : Color.WHITE);
-        game.fonte.draw(game.batch, "-", 480, 440);
+        // 3. TEXTOS DOS DESENVOLVEDORES
+        game.fonte.setColor(Color.YELLOW);
+        game.fonte.getData().setScale(2.0f);
+        game.fonte.draw(game.batch, "DESENVOLVEDORES", 490, 560);
 
-        game.fonte.setColor(hoverMais ? Color.LIGHT_GRAY : Color.WHITE);
-        game.fonte.draw(game.batch, "+", 760, 440);
+        game.fonte.setColor(Color.WHITE);
+        game.fonte.getData().setScale(1.5f);
+        game.fonte.draw(game.batch, "Projeto APS - Ciencia da Computacao - UNIP", 370, 500);
 
-        game.fonte.getData().setScale(2.5f);
-        // Usa a variável Global do Gerenciador!
-        game.fonte.setColor(GerenciadorAudio.volume == 0 ? Color.RED : Color.GREEN);
-        game.fonte.draw(game.batch, GerenciadorAudio.volume + "%", 590, 430);
+        // === LISTA DE INTEGRANTES AQUI ===
+        game.fonte.setColor(Color.LIGHT_GRAY);
+        game.fonte.getData().setScale(1.3f);
+
+        // Substitua os dados dos seus amigos!
+        game.fonte.draw(game.batch, "Marcelo Felix do Vale - RA H752116 - CC3P13", 400, 430);
+        game.fonte.draw(game.batch, "Nome do Amigo 2 - RA 123456", 400, 380);
+        game.fonte.draw(game.batch, "Nome do Amigo 3 - RA 123456", 400, 330);
+        game.fonte.draw(game.batch, "Nome do Amigo 4 - RA 123456", 400, 280);
 
         game.batch.end();
     }
 
     @Override public void resize(int width, int height) { viewport.update(width, height); }
     @Override public void show() {} @Override public void pause() {} @Override public void resume() {} @Override public void hide() {}
-    @Override public void dispose() {
+
+    @Override
+    public void dispose() {
         if (fundoConfig != null) fundoConfig.dispose();
         if (caixaConfig != null) caixaConfig.dispose();
         if (btnVoltar != null) btnVoltar.dispose();

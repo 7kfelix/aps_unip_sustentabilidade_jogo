@@ -66,9 +66,12 @@ public class GerenciadorDeConstrucao {
         if (menuAberto && mouseX > 1050) return;
 
         int tamanho = Torre.getTamanhoColisao(torreSelecionada);
-        // Centraliza o mouse baseado no tamanho exato da torre
+
+        // O X continua centralizado para a torre não nascer torta
         float previewX = mouseX - (tamanho / 2f);
-        float previewY = mouseY - (tamanho / 2f);
+
+        // O Y agora é EXATAMENTE onde está o mouse (o pé da torre)
+        float previewY = mouseY;
 
         boolean localValido = podeConstruirAqui(previewX, previewY);
 
@@ -77,12 +80,14 @@ public class GerenciadorDeConstrucao {
         if (localValido) game.shape.setColor(Color.GREEN);
         else game.shape.setColor(Color.RED);
 
+        // Desenha o quadrado (base) verde ou vermelho
         game.shape.rect(previewX, previewY, tamanho, tamanho);
 
         float alcance = Torre.getAlcanceParaPreview(torreSelecionada);
         if (alcance > 0) {
             game.shape.setColor(Color.LIGHT_GRAY);
-            game.shape.circle(mouseX, mouseY, alcance);
+            // O círculo de alcance agora sai do "peito" da torre, e não do pé!
+            game.shape.circle(mouseX, mouseY + (tamanho / 2f), alcance);
         }
 
         game.shape.end();

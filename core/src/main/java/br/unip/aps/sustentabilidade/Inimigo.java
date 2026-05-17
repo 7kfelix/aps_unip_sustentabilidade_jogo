@@ -17,7 +17,17 @@ public class Inimigo extends EntidadeJogo {
     private float velocidade;
     private int vida;
     private int vidaMaxima;
+
+    // --- LÓGICA DE STUN ---
     private float tempoParalisado = 0f;
+
+    // --- VARIÁVEIS DE EFEITOS VISUAIS (NOVO) ---
+    private Texture texturaRaizes;
+    private float tempoEnraizadoVisual = 0f;
+    private float tempoMolhado = 0f;
+    private Color corOriginal = Color.WHITE;
+    private Color corImpacto = Color.WHITE;
+    private float tempoCorImpacto = 0f;
 
     private int recompensa;
     private List<Vector2> caminho;
@@ -122,12 +132,18 @@ public class Inimigo extends EntidadeJogo {
             System.out.println("Aviso: Imagem " + nomeArquivo + " nao encontrada. Usando quadrado provisorio.");
             this.textura = criarTexturaQuadrada(this.tamanhoQuadradoFallback, cor);
         }
+
+        // --- CARREGA ARTE DAS RAÍZES (NOVO) ---
+        try {
+            texturaRaizes = new Texture("raizes.png");
+        } catch (Exception e) {
+            // Ignora se não achar, as raízes só não vão aparecer
+        }
     }
 
     @Override
     public void renderizar(SpriteBatch batch) {
 
-        // Diminuiu os normais para 85f!
         float tamanhoVisual = 85f;
 
         if (this.tipo == Tipo.ONIBUS) {
@@ -154,6 +170,21 @@ public class Inimigo extends EntidadeJogo {
             }
         }
 
+        // --- TINTA O INIMIGO DE ACORDO COM O IMPACTO (NOVO) ---
+        if (tempoCorImpacto > 0) {
+            // Pisca com a cor do tiro (Geralmente Vermelho)
+            batch.setColor(corImpacto);
+        } else if (tempoMolhado > 0) {
+            // Fica molhado (Azul Claro) após apanhar do Macaco ou Filtro
+            batch.setColor(new Color(0.4f, 0.4f, 1.0f, 0.7f));
+        } else if (tempoEnraizadoVisual > 0) {
+            // Opcional: Fica com tom de terra/verde enquanto preso
+            batch.setColor(new Color(0.6f, 0.4f, 0.2f, 1.0f));
+        } else {
+            // Cor Normal
+            batch.setColor(Color.WHITE);
+        }
+
         if (framesAnimacao != null) {
             int frameAtual = 0;
             if (framesAnimacao.length > 1) {
@@ -170,6 +201,15 @@ public class Inimigo extends EntidadeJogo {
             );
         } else if (this.textura != null) {
             batch.draw(textura, this.x, this.y, tamanhoQuadradoFallback, tamanhoQuadradoFallback);
+        }
+
+        // Reseta o batch imediatamente para não pintar o resto do jogo!
+        batch.setColor(Color.WHITE);
+
+        // --- DESENHA AS RAÍZES POR CIMA (NOVO) ---
+        if (tempoEnraizadoVisual > 0 && texturaRaizes != null) {
+            // Desenha as raízes cobrindo a base do inimigo
+            batch.draw(texturaRaizes, desenhoX, desenhoY, tamanhoVisual, tamanhoVisual);
         }
     }
 
@@ -215,9 +255,23 @@ public class Inimigo extends EntidadeJogo {
     }
 
     public int getRecompensa() { return recompensa; }
-    public void aplicarEnraizamento(float tempo) { this.tempoParalisado = tempo; }
     public int getVida() { return vida; }
     public int getVidaMaxima() { return vidaMaxima; }
+
+    // --- MÉTODOS DE EFEITOS ESPECIAIS (NOVOS) ---
+    public void aplicarEnraizamento(float tempo) {
+        this.tempoParalisado = tempo;
+        this.tempoEnraizadoVisual = tempo;
+    }
+
+    public void setMolhado(float duracao) {
+        this.tempoMolhado = duracao;
+    }
+
+    public void setCorTemporaria(Color cor, float duracao) {
+        this.corImpacto = cor;
+        this.tempoCorImpacto = duracao;
+    }
 
     @Override
     public void atualizar(float deltaTime) {
@@ -234,9 +288,15 @@ public class Inimigo extends EntidadeJogo {
             return;
         }
 
+        // --- ATUALIZA CRONÔMETROS VISUAIS (NOVO) ---
+        if (tempoEnraizadoVisual > 0) tempoEnraizadoVisual -= deltaTime;
+        if (tempoMolhado > 0) tempoMolhado -= deltaTime;
+        if (tempoCorImpacto > 0) tempoCorImpacto -= deltaTime;
+
+        // Se estiver com as raízes, ele não anda nem atualiza frame!
         if (tempoParalisado > 0) {
             tempoParalisado -= deltaTime;
-            return; // Se estiver paralisado pela raiz, ele não anda nem atualiza o frame da animação
+            return;
         }
 
         // --- ATUALIZA A ANIMAÇÃO DE "ANDAR" ---

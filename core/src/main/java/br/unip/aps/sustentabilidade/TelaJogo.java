@@ -25,6 +25,14 @@ public class TelaJogo implements Screen {
 
     private Texture texturaMapa;
 
+    // --- TEXTURAS DOS ÍCONES DO MENU ---
+    private Texture iconeSementeira;
+    private Texture iconeMacaco;
+    private Texture iconePlanta;
+    private Texture iconeBambu;
+    private Texture iconeFonte;
+    private Texture iconeArvore;
+
     private List<EntidadeJogo> entidades;
     private GeradorDeOndas geradorDeOndas;
     private Torre.Tipo torreSelecionada = Torre.Tipo.SEMENTEIRA;
@@ -38,7 +46,6 @@ public class TelaJogo implements Screen {
 
     private boolean velocidade2x = false;
 
-    // --- NOVO: CONTROLE DO MENU RETRÁTIL ---
     private boolean menuAberto = true;
 
     private boolean upScanner = false;
@@ -53,6 +60,12 @@ public class TelaJogo implements Screen {
     private final int CUSTO_ENGRENAGENS = 600;
     private final int CUSTO_ADUBO = 800;
 
+    private List<DanoFlutuante> danosNaTela;
+    private List<AvisoFlutuante> avisosNaTela;
+
+    private boolean upVisorDano = false;
+    private final int CUSTO_VISOR = 350;
+
     private GerenciadorDeCodigos gerenciadorCodigos;
 
     public TelaJogo(SustentabilidadeGame game) {
@@ -64,7 +77,18 @@ public class TelaJogo implements Screen {
 
         texturaMapa = new Texture("mapa.jpg");
 
+        // --- CARREGANDO OS ÍCONES ---
+        try { iconeSementeira = new Texture("icone_lancasementes.png"); } catch (Exception e) {}
+        try { iconeMacaco = new Texture("icone_macaco.png"); } catch (Exception e) {}
+        try { iconePlanta = new Texture("icone_planta.png"); } catch (Exception e) {}
+        try { iconeBambu = new Texture("icone_bambu.png"); } catch (Exception e) {}
+        try { iconeFonte = new Texture("icone_fonte.png"); } catch (Exception e) {}
+        try { iconeArvore = new Texture("icone_arvore.png"); } catch (Exception e) {}
+
         entidades = new ArrayList<>();
+        danosNaTela = new ArrayList<>();
+        avisosNaTela = new ArrayList<>();
+
         ecoMoedas = 100;
         vidaBase = 10;
         isGameOver = false;
@@ -81,6 +105,8 @@ public class TelaJogo implements Screen {
         geradorDeOndas = new GeradorDeOndas(entidades, rotaDoMapa, this);
 
         gerenciadorCodigos = new GerenciadorDeCodigos(this);
+
+        GerenciadorAudio.tocarMusicaJogo();
     }
 
     public void sofrerDanoNaBase(int dano) {
@@ -108,6 +134,11 @@ public class TelaJogo implements Screen {
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
             if (!isGameOver) {
                 isPaused = !isPaused;
+                if (isPaused) {
+                    GerenciadorAudio.pausarMusicaJogo();
+                } else {
+                    GerenciadorAudio.despausarMusicaJogo();
+                }
             }
         }
 
@@ -124,15 +155,35 @@ public class TelaJogo implements Screen {
 
             gerenciadorCodigos.verificarCodigos();
 
-            if (Gdx.input.justTouched()) {
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
+                for (int i = entidades.size() - 1; i >= 0; i--) {
+                    EntidadeJogo ent = entidades.get(i);
+                    if (ent instanceof Torre) {
+                        Torre t = (Torre) ent;
+                        int tamColisao = Torre.getTamanhoColisao(t.getTipo());
 
-                // --- 1. CLIQUE NO BOTÃO DE ABRIR/FECHAR MENU ---
+                        if (toque.x >= t.x && toque.x <= t.x + tamColisao &&
+                            toque.y >= t.y && toque.y <= t.y + tamColisao) {
+
+                            int valorVenda = Torre.getCusto(t.getTipo()) / 2;
+                            ecoMoedas += valorVenda;
+                            GerenciadorAudio.tocarSom(GerenciadorAudio.somInserir);
+                            entidades.remove(i);
+
+                            System.out.println("Torre vendida! Reembolso de $" + valorVenda);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+
                 if (toque.x >= 1150 && toque.y >= 680) {
+                    GerenciadorAudio.tocarSom(GerenciadorAudio.somInserir);
                     menuAberto = !menuAberto;
-                    // ADICIONE ESTA LINHA AQUI:
                     gerenciadorConstrucao.setMenuAberto(menuAberto);
                 }
-                // --- 2. CLIQUE DENTRO DO MENU (SÓ FUNCIONA SE ESTIVER ABERTO) ---
                 else if (menuAberto && toque.x > 1050) {
                     if (toque.y > 620 && toque.y <= 670) { torreSelecionada = Torre.Tipo.SEMENTEIRA; }
                     else if (toque.y > 560 && toque.y <= 610) { torreSelecionada = Torre.Tipo.MACACO; }
@@ -142,49 +193,62 @@ public class TelaJogo implements Screen {
                     else if (toque.y > 320 && toque.y <= 370) { torreSelecionada = Torre.Tipo.ARVORE; }
 
                     else if (toque.y > 250 && toque.y <= 290) {
-                        if (!upScanner && ecoMoedas >= CUSTO_SCANNER) { ecoMoedas -= CUSTO_SCANNER; upScanner = true; }
+                        if (!upScanner && ecoMoedas >= CUSTO_SCANNER) {
+                            ecoMoedas -= CUSTO_SCANNER; upScanner = true;
+                            GerenciadorAudio.tocarSom(GerenciadorAudio.somInserir);
+                        }
                     }
                     else if (toque.y > 210 && toque.y <= 250) {
-                        if (!upMuralha && ecoMoedas >= CUSTO_MURALHA) { ecoMoedas -= CUSTO_MURALHA; vidaBase += 10; upMuralha = true; }
+                        if (!upMuralha && ecoMoedas >= CUSTO_MURALHA) {
+                            ecoMoedas -= CUSTO_MURALHA; vidaBase += 10; upMuralha = true;
+                            GerenciadorAudio.tocarSom(GerenciadorAudio.somInserir);
+                        }
                     }
                     else if (toque.y > 170 && toque.y <= 210) {
                         if (!upLentes && ecoMoedas >= CUSTO_LENTES) {
                             ecoMoedas -= CUSTO_LENTES; upLentes = true;
+                            GerenciadorAudio.tocarSom(GerenciadorAudio.somInserir);
                             for (EntidadeJogo ent : entidades) if (ent instanceof Torre) ((Torre) ent).buffAlcance(1.25f);
                         }
                     }
                     else if (toque.y > 130 && toque.y <= 170) {
                         if (!upEngrenagens && ecoMoedas >= CUSTO_ENGRENAGENS) {
                             ecoMoedas -= CUSTO_ENGRENAGENS; upEngrenagens = true;
+                            GerenciadorAudio.tocarSom(GerenciadorAudio.somInserir);
                             for (EntidadeJogo ent : entidades) if (ent instanceof Torre) ((Torre) ent).buffRecarga(0.80f);
                         }
                     }
                     else if (toque.y > 90 && toque.y <= 130) {
                         if (!upAdubo && ecoMoedas >= CUSTO_ADUBO) {
                             ecoMoedas -= CUSTO_ADUBO; upAdubo = true;
+                            GerenciadorAudio.tocarSom(GerenciadorAudio.somInserir);
                             for (EntidadeJogo ent : entidades) if (ent instanceof Torre) ((Torre) ent).buffDano(1.50f);
                         }
                     }
-                    else if (toque.y >= 20 && toque.y <= 70) {
+                    else if (toque.y > 50 && toque.y <= 90) {
+                        if (!upVisorDano && ecoMoedas >= CUSTO_VISOR) {
+                            ecoMoedas -= CUSTO_VISOR; upVisorDano = true;
+                            GerenciadorAudio.tocarSom(GerenciadorAudio.somInserir);
+                        }
+                    }
+                    else if (toque.y >= 10 && toque.y <= 50) {
+                        GerenciadorAudio.tocarSom(GerenciadorAudio.somInserir);
                         velocidade2x = !velocidade2x;
                     }
-
                     gerenciadorConstrucao.setTorreSelecionada(torreSelecionada);
                 }
-
-                // --- 3. CLIQUE NO MAPA PARA CONSTRUIR ---
                 else {
-                    // Pega o tamanho exato dessa torre e divide por 2 para centralizar no clique
                     int tamanhoConstrucao = Torre.getTamanhoColisao(torreSelecionada);
                     float posRealX = toque.x - (tamanhoConstrucao / 2f);
-                    float posRealY = toque.y - (tamanhoConstrucao / 2f);
+                    float posRealY = toque.y;
 
                     if (gerenciadorConstrucao.podeConstruirAqui(posRealX, posRealY)) {
                         int custo = Torre.getCusto(torreSelecionada);
+
                         if (ecoMoedas >= custo) {
                             ecoMoedas -= custo;
+                            GerenciadorAudio.tocarSom(GerenciadorAudio.somInserir);
 
-                            // PASSE A ROTA AQUI:
                             Torre novaTorre = new Torre(posRealX, posRealY, torreSelecionada, entidades, rotaDoMapa, this);
 
                             if (upLentes) novaTorre.buffAlcance(1.25f);
@@ -196,6 +260,7 @@ public class TelaJogo implements Screen {
 
                         } else {
                             System.out.println("Faltam Eco-Moedas!");
+                            avisosNaTela.add(new AvisoFlutuante(posRealX, posRealY + 50, "SEM DINHEIRO!", Color.RED));
                         }
                     }
                 }
@@ -213,9 +278,24 @@ public class TelaJogo implements Screen {
                 }
             }
 
+            for (int i = danosNaTela.size() - 1; i >= 0; i--) {
+                danosNaTela.get(i).atualizar(tempoDoJogo);
+                if (danosNaTela.get(i).deveSair()) {
+                    danosNaTela.remove(i);
+                }
+            }
+
+            for (int i = avisosNaTela.size() - 1; i >= 0; i--) {
+                avisosNaTela.get(i).atualizar(tempoDoJogo);
+                if (avisosNaTela.get(i).deveSair()) {
+                    avisosNaTela.remove(i);
+                }
+            }
+
         } else if (isPaused && !isGameOver) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1) || (Gdx.input.justTouched() && toque.y > 350 && toque.y < 450)) {
                 isPaused = false;
+                GerenciadorAudio.despausarMusicaJogo();
             } else if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2) || (Gdx.input.justTouched() && toque.y > 250 && toque.y < 350)) {
                 game.setScreen(new TelaConfiguracoes(game, this));
             } else if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3) || (Gdx.input.justTouched() && toque.y > 150 && toque.y < 250)) {
@@ -225,6 +305,7 @@ public class TelaJogo implements Screen {
         }
         else if (isGameOver) {
             if (Gdx.input.justTouched() || Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+                GerenciadorAudio.pararMusicaJogo();
                 game.setScreen(new TelaJogo(game));
                 dispose();
             }
@@ -245,43 +326,54 @@ public class TelaJogo implements Screen {
         game.shape.setProjectionMatrix(camera.combined);
         game.shape.begin(ShapeRenderer.ShapeType.Filled);
 
-        // --- RENDERIZA O MENU APENAS SE ESTIVER ABERTO ---
+        // --- DESENHA A BORDINHA AMARELA DA SELEÇÃO E O FUNDO ESCURO ---
         if (menuAberto) {
             game.shape.setColor(0.1f, 0.1f, 0.1f, 0.85f);
             game.shape.rect(1050, 0, 230, 720);
 
-            // CORRIGIDO: Coordenadas Y agora descem de 60 em 60 pixels, alinhadas com o texto!
-            desenharQuadradoMenu(1060, 640, Color.BLUE, torreSelecionada == Torre.Tipo.SEMENTEIRA);
-            desenharQuadradoMenu(1060, 580, Color.CYAN, torreSelecionada == Torre.Tipo.MACACO);
-            desenharQuadradoMenu(1060, 520, Color.FOREST, torreSelecionada == Torre.Tipo.PLANTA);
-            desenharQuadradoMenu(1060, 460, Color.WHITE, torreSelecionada == Torre.Tipo.BAMBU);
-            desenharQuadradoMenu(1060, 400, Color.ROYAL, torreSelecionada == Torre.Tipo.FILTRO);
-            desenharQuadradoMenu(1060, 340, Color.LIME, torreSelecionada == Torre.Tipo.ARVORE);
+            desenharFundoIcone(1060, 640, torreSelecionada == Torre.Tipo.SEMENTEIRA);
+            desenharFundoIcone(1060, 580, torreSelecionada == Torre.Tipo.MACACO);
+            desenharFundoIcone(1060, 520, torreSelecionada == Torre.Tipo.PLANTA);
+            desenharFundoIcone(1060, 460, torreSelecionada == Torre.Tipo.BAMBU);
+            desenharFundoIcone(1060, 400, torreSelecionada == Torre.Tipo.FILTRO);
+            desenharFundoIcone(1060, 340, torreSelecionada == Torre.Tipo.ARVORE);
 
             game.shape.setColor(velocidade2x ? Color.YELLOW : Color.DARK_GRAY);
             game.shape.rect(1060, 25, 210, 40);
         }
 
-        // --- DESENHA O BOTÃO DE ABRIR/FECHAR MENU ---
         game.shape.setColor(0.2f, 0.2f, 0.2f, 0.9f);
         game.shape.rect(1150, 680, 130, 40);
 
         game.shape.end();
         Gdx.gl.glDisable(GL20.GL_BLEND);
 
-        // Sprites, Entidades e HUD
         game.batch.begin();
 
-        // --- A MÁGICA DA PROFUNDIDADE ACONTECE AQUI! ---
-        // Ele vai olhar todo mundo. Quem tiver o Y MAIOR (mais no fundo da tela),
-        // vai pro início da lista e é desenhado primeiro. Os da frente passam por cima!
+        // --- DESENHA OS ÍCONES POR CIMA DOS FUNDOS ---
+        if (menuAberto) {
+            if (iconeSementeira != null) game.batch.draw(iconeSementeira, 1060, 640, 40, 40);
+            if (iconeMacaco != null) game.batch.draw(iconeMacaco, 1060, 580, 40, 40);
+            if (iconePlanta != null) game.batch.draw(iconePlanta, 1060, 520, 40, 40);
+            if (iconeBambu != null) game.batch.draw(iconeBambu, 1060, 460, 40, 40);
+            if (iconeFonte != null) game.batch.draw(iconeFonte, 1060, 400, 40, 40);
+            if (iconeArvore != null) game.batch.draw(iconeArvore, 1060, 340, 40, 40);
+        }
+
         entidades.sort((e1, e2) -> Float.compare(e2.y, e1.y));
 
         for (EntidadeJogo ent : entidades) {
             ent.renderizar(game.batch);
         }
 
-        // HUD Principal (Sempre visível)
+        for (DanoFlutuante df : danosNaTela) {
+            df.renderizar(game.fonte, game.batch);
+        }
+
+        for (AvisoFlutuante aviso : avisosNaTela) {
+            aviso.renderizar(game.fonte, game.batch);
+        }
+
         game.fonte.setColor(Color.WHITE);
         game.fonte.getData().setScale(1.5f);
         game.fonte.draw(game.batch, "Eco-Moedas: " + ecoMoedas, 20, 700);
@@ -293,15 +385,14 @@ public class TelaJogo implements Screen {
             game.fonte.draw(game.batch, "Construa sua primeira defesa para iniciar as ondas!", 300, 680);
         }
 
-        // --- TEXTOS DO MENU (SÓ RENDERIZA SE ESTIVER ABERTO) ---
         if (menuAberto) {
             game.fonte.getData().setScale(1.0f);
             game.fonte.draw(game.batch, "Sementeira\n$50 | Dano:50", 1110, 675);
-            game.fonte.draw(game.batch, "Macaco Splash\n$120 | Area", 1110, 615);
-            game.fonte.draw(game.batch, "Carnivora (CC)\n$100 | Root", 1110, 555);
+            game.fonte.draw(game.batch, "Macaco Baloeiro\n$120 | Balao", 1110, 615);
+            game.fonte.draw(game.batch, "Mano CC\n$100 | Prende", 1110, 555);
             game.fonte.draw(game.batch, "Bambu Sniper\n$650 | Dano:450", 1110, 495);
-            game.fonte.draw(game.batch, "Filtro D'Agua\n$80 | Aura", 1110, 435);
-            game.fonte.draw(game.batch, "Arvore Ancia\n$200 | Renda", 1110, 375);
+            game.fonte.draw(game.batch, "Fonte Pura\n$80 | Dano Direto", 1110, 435);
+            game.fonte.draw(game.batch, "Mr Tree\n$200 | Renda", 1110, 375);
 
             game.fonte.setColor(Color.LIGHT_GRAY);
             game.fonte.draw(game.batch, "--- UPGRADES ---", 1110, 310);
@@ -321,11 +412,13 @@ public class TelaJogo implements Screen {
             game.fonte.setColor(upAdubo ? Color.GOLD : Color.WHITE);
             game.fonte.draw(game.batch, "5. Adubo (+Dano): " + (upAdubo ? "OK" : "$800"), 1060, 120);
 
+            game.fonte.setColor(upVisorDano ? Color.GOLD : Color.WHITE);
+            game.fonte.draw(game.batch, "6. Visor Dano: " + (upVisorDano ? "OK" : "$350"), 1060, 80);
+
             game.fonte.setColor(velocidade2x ? Color.BLACK : Color.WHITE);
             game.fonte.draw(game.batch, velocidade2x ? "VELOCIDADE: 2X" : "VELOCIDADE: 1X", 1095, 52);
         }
 
-        // --- TEXTO DO BOTÃO RETRÁTIL ---
         game.fonte.setColor(Color.YELLOW);
         game.fonte.getData().setScale(1.2f);
         game.fonte.draw(game.batch, menuAberto ? ">> Fechar" : "<< Loja", 1170, 708);
@@ -392,13 +485,21 @@ public class TelaJogo implements Screen {
         geradorDeOndas.pularParaOnda(onda);
     }
 
-    private void desenharQuadradoMenu(float x, float y, Color cor, boolean selecionada) {
+    // --- NOVO MÉTODO PARA DESENHAR O FUNDO DO ÍCONE ---
+    private void desenharFundoIcone(float x, float y, boolean selecionada) {
         if (selecionada) {
             game.shape.setColor(Color.YELLOW);
-            game.shape.rect(x - 5, y - 5, 50, 50);
+            game.shape.rect(x - 5, y - 5, 50, 50); // Bordinha amarela
         }
-        game.shape.setColor(cor);
+        // Fundo escuro atrás do ícone para dar destaque (se a imagem não cobrir tudo)
+        game.shape.setColor(Color.DARK_GRAY);
         game.shape.rect(x, y, 40, 40);
+    }
+
+    public void adicionarDanoFlutuante(float x, float y, int dano, Color cor) {
+        if (upVisorDano) {
+            danosNaTela.add(new DanoFlutuante(x, y + 40, dano, cor));
+        }
     }
 
     public void adicionarEntidadeAoJogo(EntidadeJogo novaEntidade) {
@@ -407,13 +508,30 @@ public class TelaJogo implements Screen {
 
     @Override public void resize(int width, int height) { viewport.update(width, height); }
     @Override public void show() {}
-    @Override public void pause() {}
-    @Override public void resume() {}
+
+    @Override
+    public void pause() {
+        GerenciadorAudio.pausarMusicaJogo();
+    }
+
+    @Override
+    public void resume() {
+        if (!isGameOver && !isPaused) {
+            GerenciadorAudio.despausarMusicaJogo();
+        }
+    }
+
     @Override public void hide() {}
 
     @Override public void dispose() {
-        if (texturaMapa != null) {
-            texturaMapa.dispose();
-        }
+        if (texturaMapa != null) texturaMapa.dispose();
+
+        // --- LIMPANDO OS ÍCONES DA MEMÓRIA ---
+        if (iconeSementeira != null) iconeSementeira.dispose();
+        if (iconeMacaco != null) iconeMacaco.dispose();
+        if (iconePlanta != null) iconePlanta.dispose();
+        if (iconeBambu != null) iconeBambu.dispose();
+        if (iconeFonte != null) iconeFonte.dispose();
+        if (iconeArvore != null) iconeArvore.dispose();
     }
 }

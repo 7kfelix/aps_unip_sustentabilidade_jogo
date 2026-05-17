@@ -25,13 +25,14 @@ public class Torre extends EntidadeJogo {
 
     private boolean atacando = false;
     private float tempoAnimacaoAtual = 0f;
+    private float tempoAnimacaoContinua = 0f; // --- NOVO: Cronômetro que nunca para!
     private final float DURACAO_ANIMACAO = 0.4f;
     private Inimigo alvoTravado;
 
     private TextureRegion[] framesAnimacao;
     private Projetil.Efeito efeitoTiro;
 
-    // --- NOVO: LÓGICA DE ORIENTAÇÃO ---
+    // --- LÓGICA DE ORIENTAÇÃO ---
     private boolean olharParaDireitaPadrao;
 
     public Torre(float x, float y, Tipo tipo, List<EntidadeJogo> todasEntidades, List<Vector2> rotaDoMapa, TelaJogo jogoPrincipal) {
@@ -79,24 +80,32 @@ public class Torre extends EntidadeJogo {
         }
 
         int tamColisao = getTamanhoColisao(this.tipo);
-        float compensacao = (tamanhoVisual - tamColisao) / 2f;
-        float desenhoX = this.x - compensacao;
-        float desenhoY = this.y - compensacao;
+
+        // --- AQUI ESTÁ A CORREÇÃO MÁGICA ---
+        // A compensação agora é SÓ no eixo X (para a torre não ficar torta para os lados)
+        float compensacaoX = (tamanhoVisual - tamColisao) / 2f;
+        float desenhoX = this.x - compensacaoX;
+
+        // O Y não tem mais compensação para baixo! A base do sprite fica no this.y exato.
+        float desenhoY = this.y;
 
         // --- LÓGICA DE DIREÇÃO INTELIGENTE ---
         boolean deveInverter;
 
         if (alvoTravado != null && alvoTravado.isAtivo()) {
-            // Se tem inimigo, olha para ele
             deveInverter = alvoTravado.x > this.x;
         } else {
-            // Se está ociosa, olha para a estrada
             deveInverter = olharParaDireitaPadrao;
         }
 
         if (framesAnimacao != null) {
             TextureRegion frameParaDesenhar;
-            if (atacando && framesAnimacao.length > 1) {
+
+            if (this.tipo == Tipo.ARVORE || this.tipo == Tipo.FILTRO) {
+                int frameAtual = (int) ((tempoAnimacaoContinua / 0.15f) % framesAnimacao.length);
+                frameParaDesenhar = framesAnimacao[frameAtual];
+            }
+            else if (atacando && framesAnimacao.length > 1) {
                 int frameAtual = (int) ((tempoAnimacaoAtual / DURACAO_ANIMACAO) * framesAnimacao.length);
                 if (frameAtual >= framesAnimacao.length) frameAtual = framesAnimacao.length - 1;
                 frameParaDesenhar = framesAnimacao[frameAtual];
@@ -184,9 +193,14 @@ public class Torre extends EntidadeJogo {
 
     @Override
     public void atualizar(float deltaTime) {
+
+        // --- NOVO: Cronômetro principal (Roda o tempo todo) ---
+        tempoAnimacaoContinua += deltaTime;
+
         if (this.tipo == Tipo.ARVORE) {
             tempoDesdeUltimoTiro += deltaTime;
             if (tempoDesdeUltimoTiro >= taxaDeTiro) {
+                GerenciadorAudio.tocarSom(GerenciadorAudio.somRenda); // <-- SOM DA RENDA AQUI
                 jogoPrincipal.adicionarMoedas(20);
                 tempoDesdeUltimoTiro = 0f;
             }
@@ -196,11 +210,38 @@ public class Torre extends EntidadeJogo {
         if (atacando) {
             tempoAnimacaoAtual += deltaTime;
             if (tempoAnimacaoAtual >= DURACAO_ANIMACAO) {
+
+                // 1. Lógica do FILTRO (Dano Direto + Número Flutuante)
                 if (this.tipo == Tipo.FILTRO && alvoTravado != null && alvoTravado.isAtivo()) {
-                    if (alvoTravado.receberDano(this.dano)) jogoPrincipal.adicionarMoedas(alvoTravado.getRecompensa());
-                } else if (alvoTravado != null && alvoTravado.isAtivo()) {
+                    GerenciadorAudio.tocarSom(GerenciadorAudio.somAguaFonte); // <-- SOM DA ÁGUA DO FILTRO
+
+                    alvoTravado.setMolhado(2.0f); // Fica azul transparente por 2 segundos
+                    alvoTravado.setCorTemporaria(Color.RED, 0.1f); // Pisca vermelho rápido
+
+                    boolean tiroFatal = alvoTravado.receberDano(this.dano);
+
+                    // O Filtro ataca direto com a água, então colocamos azul (Color.CYAN)
+                    jogoPrincipal.adicionarDanoFlutuante(alvoTravado.x, alvoTravado.y, this.dano, Color.CYAN);
+
+                    if (tiroFatal) {
+                        GerenciadorAudio.tocarSom(GerenciadorAudio.somMorte); // <-- INIMIGO MORRE
+                        jogoPrincipal.adicionarMoedas(alvoTravado.getRecompensa());
+                    }
+                }
+                // 2. LÓGICA DAS OUTRAS TORRES
+                else if (alvoTravado != null && alvoTravado.isAtivo()) {
+                    // --- TOCA O SOM DO TIRO DEPENDENDO DA TORRE ---
+                    if (this.tipo == Tipo.BAMBU) {
+                        GerenciadorAudio.tocarSom(GerenciadorAudio.somSniper);
+                    } else if (this.tipo == Tipo.SEMENTEIRA || this.tipo == Tipo.MACACO) {
+                        GerenciadorAudio.tocarSom(GerenciadorAudio.somTiro);
+                    } else if (this.tipo == Tipo.PLANTA) {
+                        GerenciadorAudio.tocarSom(GerenciadorAudio.somFolhas);
+                    }
+
                     todasEntidades.add(new Projetil(this.x + 15, this.y + 15, alvoTravado, this.dano, this.efeitoTiro, todasEntidades, jogoPrincipal));
                 }
+
                 atacando = false;
                 tempoDesdeUltimoTiro = 0f;
             }
@@ -215,7 +256,7 @@ public class Torre extends EntidadeJogo {
                     if (Vector2.dst(this.x, this.y, inimigo.x, inimigo.y) <= alcance) {
                         this.alvoTravado = inimigo;
                         this.atacando = true;
-                        this.tempoAnimacaoAtual = 0f;
+                        this.tempoAnimacaoAtual = 0f; // Zera o cronômetro de ataque normal
                         break;
                     }
                 }
