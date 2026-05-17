@@ -24,20 +24,23 @@ public class TelaTutorial implements Screen {
     // --- VARIÁVEIS DA ANIMAÇÃO ---
     private Texture spriteSheetNPC;
     private Animation<TextureRegion> animacaoNPC;
-    private float tempoDaAnimacao; // Relógio da animação
+    private float tempoDaAnimacao;
 
     private int paginaAtual = 0;
 
-    // As falas do seu tutorial! Você pode adicionar quantas quiser.
+    // --- NOVOS DIÁLOGOS COM FOCO EM ESTRATÉGIA (COM ACENTUAÇÃO) ---
     private String[] dialogos = {
-        "Ola, Defensor! O parque esta sob o ataque\nde poluidores. Precisamos da sua ajuda!",
-        "O seu objetivo e simples: use suas Eco-Moedas\npara construir defesas e impedir o avanco deles.",
-        "Clique no botao '>> Loja' no canto direito para\nabrir o menu de construcao e ver as torres.",
-        "Cada torre tem uma funcao: A Sementeira atira \nde longe, o Filtro limpa em area...",
-        "...A Planta prende inimigos, o Bambu da muito dano \ne a Arvore Ancia gera mais dinheiro com o tempo!",
-        "Voce tambem pode comprar Upgrades na loja \npara melhorar as suas torres ja construidas.",
-        "DICA: Se precisar de espaco ou dinheiro, clique \ncom o BOTAO DIREITO em uma torre para vende-la.",
-        "A natureza conta com voce. Boa sorte!"
+        "Olá, Defensor! O parque está sob o ataque\nde poluidores. Precisamos da sua ajuda!",
+        "O seu objetivo é simples: use suas Eco-Moedas\npara construir defesas e impedir o avanço deles.",
+        "Clique no botão '>> Loja' no canto direito para\nabrir o menu de construção e planejar a defesa.",
+        "Estratégia é tudo! A 'Sementeira' é barata\ne ótima para segurar as primeiras ondas.",
+        "Muitos inimigos juntos? Use o 'Macaco Baloeiro'!\nO balão de água explode e dá dano em área em todos.",
+        "Se vierem inimigos rápidos, o 'Mano CC' é a\nsolução. Ele solta raízes que travam os monstros!",
+        "A 'Fonte Pura' ataca rápido com água. Já o\n'Bambu Sniper' custa caro, mas derrete os fortes!",
+        "E para ficar rico: plante o 'Mr Tree' no início!\nEle não ataca, mas gera moedas durante a partida.",
+        "Sobrou dinheiro? Compre UPGRADES na loja para\naumentar o dano, alcance e velocidade das torres.",
+        "DICA: Clique com o BOTÃO DIREITO em uma torre\npara vendê-la e recuperar metade do valor investido.",
+        "O parque conta com você. Boa sorte!"
     };
 
     public TelaTutorial(SustentabilidadeGame game) {
@@ -128,10 +131,7 @@ public class TelaTutorial implements Screen {
 
         // --- DESENHA A ANIMAÇÃO DA GUIA ---
         if (animacaoNPC != null) {
-            // Pede o frame correto baseado no tempo
             TextureRegion frameAtual = animacaoNPC.getKeyFrame(tempoDaAnimacao);
-
-            // Desenha com 300x400 (metade do tamanho original para ficar em HD)
             game.batch.draw(frameAtual, 80, 250, 300, 400);
         }
 
@@ -160,6 +160,6 @@ public class TelaTutorial implements Screen {
     @Override
     public void dispose() {
         if (texturaMapa != null) texturaMapa.dispose();
-        if (spriteSheetNPC != null) spriteSheetNPC.dispose(); // Limpa a folha de sprites da memória
+        if (spriteSheetNPC != null) spriteSheetNPC.dispose();
     }
 }
